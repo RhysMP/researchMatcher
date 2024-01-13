@@ -1,4 +1,4 @@
 # sbhacksX
-project for SBHacksX 2024 
+Project for SBHacksX 2024 
 
-rhys panopio && yasir white 
+Rhys Panopio && Yasir White && Mario Tapia && Kaan Koc 

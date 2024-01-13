@@ -21,7 +21,7 @@ function App() {
   const [uploaded, setUpload] = useState('Pending...')
 
   function buttonClick() {
-    axios.get(`https://jsonplaceholder.typicode.com/users`)
+    axios.get(`http://127.0.0.1:5000/json`)
     .then(res => {
       const data = res.data;
       setUpload(JSON.stringify(data))

@@ -4,9 +4,11 @@ from sqlalchemy.dialects.postgresql import ARRAY
 import os
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
+from flask_cors import CORS
 
 
 app = Flask(__name__)
+CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://postgres:Admin123@35.235.95.124:5432/postgres'
 db = SQLAlchemy(app)
 

@@ -21,11 +21,19 @@ function App() {
   const [uploaded, setUpload] = useState('Pending...')
 
   function buttonClick() {
-    axios.get(`http://127.0.0.1:5000/json`)
+    axios.get(`http://127.0.0.1:5000/students`, {
+      headers: {
+        'Content-Type': 'application/json',
+        // Add any other required headers here
+      }
+    })
     .then(res => {
       const data = res.data;
-      setUpload(JSON.stringify(data))
+      setUpload(JSON.stringify(data));
     })
+    .catch(error => {
+      console.error("Error fetching data:", error);
+    });
   }
 
   return (

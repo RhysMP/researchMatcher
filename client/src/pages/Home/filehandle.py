@@ -22,14 +22,10 @@ def pdf_to_text(pdf_path):
 
 @app.route('/uploadFile', methods=['GET', 'POST'])
 def upload_file():
-    print("WORK")
     file = request.files['file']
-    file.save('' + file.filename)
+    file.save(os.path.join(os.getcwd(), file.filename))
     major = request.form['major']
     name = request.form['name']
-    print(major)
-
-
 
     # formData.append('fileName', file.name);
     # formData.append('name', event.target.name.value);

@@ -163,23 +163,26 @@ function Home() {
   
   function handleSubmit(event) {
     event.preventDefault();
-    const url = 'http://localhost:5000/uploadFile';
+    const url = 'http://127.0.0.1:5000/uploadFile';
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', file.name);
     formData.append('name', event.target.name.value);
     formData.append('major', event.target.major.value);
+    formData.append('email', event.target.major.value);
     const config = {
       headers: {
         'content-type': 'multipart/form-data',
       },
     };
-    axios.post(url, formData, config);
+    axios.post(url, formData, config).then((response) => {
+      console.log(response.data);
+    });
   }
 
   return (<div>
       <Nav></Nav>
-      <form action="http://localhost:5000/uploadFile" method="post">
+      <form onSubmit={(e) => {handleSubmit(e)}}>
       <Welcome>
         <Container>
           <SubContainer>
@@ -190,12 +193,12 @@ function Home() {
           <SubContainer style={{border: '2px solid #FFEB82',backgroundColor: 'rgba(230,230,230,0.9)'}}>
             <div style={{display: 'flex', height: '60%', width: '100%'}}>
               <div style={{width: '50%', height: '100%', marginRight: '40px'}}>
-                  <InputField placeholder="First/Last Name" name="name" id="name" required/>
-                  <InputField placeholder="Email" name="email" id="email" required/>
-                  <InputField placeholder="Field of Study" name="major" id="major" required/>
+                  <InputField placeholder="First/Last Name" name="name" id="name"/>
+                  <InputField placeholder="Email" name="email" id="email"/>
+                  <InputField placeholder="Field of Study" name="major" id="major"/>
 
                   <LabelPad />
-                  <FileUpload for="resume-upload" type="file" onChange={handleChange}>
+                  <FileUpload for="resume-upload" type="file">
                     Upload a resume
                     {submissionStatus}
                   </FileUpload>

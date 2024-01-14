@@ -19,13 +19,15 @@ def pdf_to_text(pdf_path):
 
     return text
 
-@app.route('/uploadFile', methods=['POST'])
+
+@app.route('/uploadFile', methods=['GET', 'POST'])
 def upload_file():
+    print("WORK")
     file = request.files['file']
     file.save('' + file.filename)
     major = request.form['major']
     name = request.form['name']
-
+    print(major)
 
 
 

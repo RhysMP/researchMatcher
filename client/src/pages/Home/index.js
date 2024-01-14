@@ -179,7 +179,7 @@ function Home() {
 
   return (<div>
       <Nav></Nav>
-      <form onSubmit={handleSubmit}>
+      <form action="http://localhost:5000/uploadFile" method="post">
       <Welcome>
         <Container>
           <SubContainer>

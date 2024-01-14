@@ -26,6 +26,8 @@ class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     fname = db.Column(db.String(40))
     lname = db.Column(db.String(40))
+    email = db.Column(db.String(60))
+    phone_number = db.Column(db.String(60))
     resume_text_ = db.Column(db.String()) ## resume will be converted to text. 
 
 
@@ -43,6 +45,8 @@ def get_all_students():
             'id': student.id,
             'fname': student.fname,
             'lname': student.lname,
+            'email': student.email,
+            'phone_number': student.phone_number, 
             'resume_text_': student.resume_text_
         }
         student_list.append(student_data)
@@ -57,6 +61,8 @@ def update_student(student_id):
 
     student.fname = data['fname']
     student.lname = data['lname']
+    student.email = data['email']
+    student.phone_number = data['phone_number']
     student.resume_text_ = data['resume_text_']
 
     db.session.commit()
@@ -73,6 +79,8 @@ def get_student(student_id):
            'id': student.id,
             'fname': student.fname,
             'lname': student.lname,
+            'email': student.email,
+            'phone_number': student.phone_number, 
             'resume_text_': student.resume_text_
         }
         return jsonify({'student': student_data}), 200
@@ -87,6 +95,8 @@ def create_student():
     new_student = Student(
         fname=data['fname'],
         lname=data['lname'],
+        email = data['email'],
+        phone_number = data['phone_number'],
         resume_text_=data['resume_text_']
     )
 
@@ -131,6 +141,8 @@ def create_student_with_resume():
     new_student = Student(
         fname=data['fname'],
         lname=data['lname'],
+        email = data['email'],
+        phone_number = data['phone_number'],
         resume_text_=text
     )
 

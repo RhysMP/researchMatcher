@@ -73,3 +73,20 @@ def get_sim_score(student_keys, prof_keys):
     return sim_score
 
 print(get_sim_score(stud_keys, profe_keys))
+
+def only_sim_score(student, prof):
+
+    # student: str of student resume
+    # prof: str of professor abstract
+    
+    # clean resume text, get keywords, extract using threshold
+    clean_resume = re.sub(r'[^a-zA-Z\s]', '', student)
+    keys_stud = get_keywords_student(clean_resume)
+    s_keys = [tup[0] for tup in stud_keys if tup[1] >= 0.2]
+
+    # clean prof text, get keywords, extract using threshold
+    clean_research = re.sub(r'[^a-zA-Z\s]', '', prof)
+    keys_prof = get_keywords_prof(clean_research)
+    p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
+
+    return get_sim_score(stud_keys, profe_keys)

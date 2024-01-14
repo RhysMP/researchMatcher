@@ -1,0 +1,1084 @@
+An Advance on Variable Elimination with Applications to
+Tensor-Based Computation
+Adnan Darwiche1
+Abstract. We present new results on the classical algorithm of
+variable elimination, which underlies many algorithms including for
+probabilistic inference. The results relate to exploiting functional de-
+pendencies, allowing one to perform inference efﬁciently on models
+that have very large treewidth. The highlight of the advance is that
+it works with standard (dense) factors, without the need for sparse
+factors or techniques based on knowledge compilation that are com-
+monly utilized. This is signiﬁcant as it permits a direct implementa-
+tion of the improved variable elimination algorithm using tensors and
+their operations, leading to extremely efﬁcient implementations espe-
+cially when learning model parameters. We illustrate the efﬁcacy of
+our proposed algorithm by compiling Bayesian network queries into
+tensor graphs and then learning their parameters from labeled data
+using a standard tool for tensor computation.
+1 Introduction
+The work reported in this paper is motivated by an interest in model-
+based supervised learning, in contrast to model-free supervised learn-
+ing that currently underlies most applications of neural networks. We
+brieﬂy discuss this subject ﬁrst to put the proposed work in context.
+Supervised learning has become very inﬂuential recently and
+stands behind most real-world applications of AI. In supervised
+learning, one learns a function from labeled data, a practice that is
+now dominated by the use of neural networks to represent such func-
+tions; see [16, 17, 1, 26]. Supervised learning can be applied in other
+contexts as well, such as causal models in the form of Bayesian
+networks [23, 24, 25]. In particular, for each query on the causal
+model, one can compile an Arithmetic Circuit (AC) that maps evi-
+dence (inputs) to the posterior probability of interest (output) [9, 10].
+AC parameters, which correspond to Bayesian network parameters,
+can then be learned from labeled data using gradient descent. Hence,
+like a neural network, the AC is a circuit that computes a function
+whose parameters can be learned from labeled data.
+The use of ACs in this fashion can be viewed as model-based su-
+pervised learning, in contrast to model-free supervised learning using
+neural networks. Model-based supervised learning is attractive since
+the AC can integrate the background knowledge embecded in its un-
+derlying causal model. This has a number of advantages, which in-
+clude a reduced reliance on data, improved robustness and the ability
+to provide data-independent guarantees on the learned function. One
+important type of background knowledge is functional dependencies
+between variables and their direct causes in a model (a special case of
+what is known as determinism ). Not only can this type of knowledge
+signiﬁcantly reduce the reliance on data, but it can also signiﬁcantly
+improve the complexity of inference. In fact, substantial efforts have
+1University of California, Los Angeles, email: darwiche@cs.ucla.edubeen dedicated to exploiting determinism in probabilistic inference,
+particularly the compilation of Bayesian networks into ACs [9, 3, 2],
+which is necessary for efﬁcient inference on dense models.
+There are two main approaches for exploiting functional depen-
+dencies. The ﬁrst is based on the classical algorithm of variable elim-
+ination (VE), which underlies algorithms for probabilistic inference
+including the jointree algorithm [29, 11, 18]. VE represents a model
+using factors, which are tables or multi-dimensional arrays. It then
+performs inference using a few and simple factor operations. Ex-
+ploiting functional dependencies within VE requires sparse factors ;
+see, e.g., [19, 21]. The second approach for exploiting functional de-
+pendencies reduces probabilistic inference to weighted model count-
+ingon a propositional formula that encodes the model, including its
+functional dependencies. It then compiles the formula into a circuit
+that is tractable for model counting; see, e.g., [8, 2]. This approach is
+in common use today given the efﬁcacy of knowledge compilers.
+Our main contribution is a new approach for exploiting functional
+dependencies in VE that works with standard (dense) factors. This
+is signiﬁcant for the following reason. We wish to map probabilistic
+inference, particularly the learning of parameters, into a tensor com-
+putation to exploit the vast progress on tensor-based technology and
+be on par with approaches that aggressively exploit this technology.
+Tensors are multi-dimensional arrays whose operations are heavily
+optimized and can be extremely fast, even on CPU-based platforms
+like modern laptops (let alone GPUs). A tensor computation takes
+the form of a tensor graph with nodes representing tensor opera-
+tions. Factors map directly to tensors and sparse factors to sparse
+tensors. However, sparse tensors have limited support in state of the
+art tools, which prohibits an implementation of VE using sparse ten-
+sors.2Knowledge compilation approaches produce circuits that cast
+intoscalar tensor graphs, which are less effective than general ten-
+sor graphs as they are less amenable to parallelization. Moreover,
+while our approach needs to know that there is a functional depen-
+dency between variables it does not require the speciﬁc dependency
+(the speciﬁc numbers). Hence, it can be used to speed up inference
+even when the model parameters are unknown which can be critical
+when learning model parameters from data. Neither of the previous
+approaches can exploit this kind of abstract information.
+VE is based on two theorems that license factor operations. We
+add two new theorems that license more operations in the presence
+of functional dependences. This leads to a standard VE algorithm ex-
+cept with a signiﬁcantly improved complexity and computation that
+maps directly to a tensor graph. We present experimental results for
+2For example, in TensorFlow, a sparse tensor can only be multiplied by a
+dense tensor, which rules out the operation of (sparse) factor multiplication
+that is essential for sparse VE; see https://www.tensorflow.org/
+api_docs/python/tf/sparse/SparseTensor .To Appear in ECAI-2020inference and learning that show promise of the proposed algorithm.
+We start in Section 2 by discussing factors, their operations and
+the VE algorithm including its underlying theorems. We also present
+our new VE theorems in this section. We then propose a new VE al-
+gorithm in Section 3 that exploits functional dependencies. We show
+how the proposed algorithm maps to tensor graphs and why this mat-
+ter in Section 4. We follow by case studies in Section 5 that illustrate
+the algorithm’s performance in the context of model-based super-
+vised learning. We ﬁnally close with some remarks in Section 6.
+2 The Fundamentals: Factors & Operations
+The VE algorithm is based on applying operations to factors.
+Afactor for discrete variables Xis a function that maps each in-
+stantiation xof variables Xinto a number. The following are two
+factors over binary variables A,B,C and ternary variable D:
+A Df(AD)
+0 0 0.2
+0 1 0.3
+0 2 0.6
+1 0 0.9
+1 1 0.6
+1 2 0.1A B C g(ABC )
+0 0 0 1.0
+0 0 1 0.0
+0 1 0 0.0
+0 1 1 1.0
+1 0 0 0.2
+1 0 1 0.8
+1 1 0 0.5
+1 1 1 0.5
+Factors can be represented as multi-dimensional arrays and are now
+commonly referred to as tensors (factor variables corresponds to ar-
+ray/tensor dimensions). One needs three factor operations to imple-
+ment the VE algorithm: multiplication, sum-out and normalization.
+The product of factorsf(X)andg(Y)is another factor h(Z),
+where Z=X∪Yandh(z) =f(x)g(y)for the unique instan-
+tiations xandythat are compatible with instantiation z.Summing-
+outvariables Y⊆Xfrom factorf(X)yields another factor g(Z),
+where Z=X\Yandg(z) =/summationtext
+yf(yz). We use/summationtext
+Yfto denote
+the resulting factor g. We also use/summationtext=
+Zfwhich reads: sum out all
+variables from factor fexcept for variables Z.Normalizing factor
+f(X)yields another factor g(X)whereg(x) =f(x)//summationtext
+xf(x).
+We useηfto denote the normalization of factor f.
+ABayesian Network (BN) is speciﬁed by a directed acyclic graph
+(DAG) and a set of factors. In particular, for each node Xand its par-
+entsU, we need a factor fXover variables XU. The valuefX(xu)
+represents the conditional probability P(x|u)and the factor fXis
+called a Conditional Probability Table (CPT). Thejoint distribution
+speciﬁed by a Bayesian network is simply the product of its CPTs.
+The Bayesian network in Figure 2 has ﬁve CPTs fA(A),fB(AB),
+fC(AC),fD(BCD )andfE(CE). The network joint distribution is
+the product of these factors Pr(ABCDE ) =fAfBfCfDfE.
+Evidence on variable Xis captured by a factor λX(X)called an
+evidence indicator. Hard evidence ﬁxes a value xgivingλX(x) =
+1andλX(x⋆) = 0 forx⋆/negationslash=x. For soft evidence, λX(x)is the
+likelihood ofx[23]. The posterior distribution of a Bayesian network
+is the normalized product of its CPTs and evidence indicators.
+An expression constructed by applying operations to factors will
+be called an f-expression. Suppose we have evidence on variables
+AandEin Figure 2. The posterior on variable Dis obtained by
+evaluating the following f-expression:
+P⋆(D) =η/summationdisplay
+ABCEλAλEfAfBfCfDfE.
+The VE algorithm factors f-expressions so they are evaluated more
+efﬁciently [29, 11] and is based on two theorems; see, e.g., [10, Chap-
+ter 6]. The ﬁrst theorem says that the order in which variables are
+summed out does not matter.Theorem 1./summationtext
+XYf=/summationtext
+X/summationtext
+Yf=/summationtext
+Y/summationtext
+Xf.
+The second theorem allows us to reduce the size of factors in-
+volved in a multiplication operation.
+Theorem 2. If variables Xappear in factor fbut not in factor g,
+then/summationtext
+Xf·g=g/summationtext
+Xf.
+Factor/summationtext
+Xfis exponentially smaller than factor fso Theorem 2
+allows us to evaluate the f-expression/summationtext
+Xf·gmuch more efﬁciently.
+Consider the f-expression/summationtext
+ABDEf(ACE )f(BCD ). A direct
+evaluation multiplies the two factors to yield f(ABCDE )then sums
+out variables ABDE . Using Theorem 1, we can arrange the expres-
+sion into/summationtext
+AE/summationtext
+BDf(ACE )f(BCD )and using Theorem 2 into/summationtext
+AEf(ACE )/summationtext
+BDf(BCD ), which is more efﬁcient to evaluate.
+Using an appropriate order for summing out (eliminating) vari-
+ables, Theorems 1 and 2 allow one to compute the posterior on any
+variable in a Bayesian network in O(nexp(w))time and space.
+Here,nis the number of network variables and wis the network
+treewidth (a graph-theoretic measure of the network connectivity).
+This works well for sparse networks that have a small treewidth,
+but is problematic for dense networks like the ones we will look at in
+Section 5. We present next two new results that allow us to sometimes
+signiﬁcantly improve this computational complexity, by exploiting
+functional relationships between variables and their direct causes.
+While we will focus on exploiting functional dependencies in
+Bayesian networks, our results are more broadly applicable since the
+VE algorithm can be utilized in many other domains including sym-
+bolic reasoning and constraint processing [12]. VE can also be used
+tocontract tensor networks which have been receiving increased at-
+tention. A tensor network is a set of factors in which a variable
+appears in at most two factors. Contracting a tensor network is the
+problem of summing out all variables that appear in two factors; see,
+e.g., [14, 15]. The VE algorithm can also be used to evaluate Ein-
+stein summations which are in common use today and implemented
+in many tools including NumPy.3
+2.1 Functional CPTs
+Consider variable Xthat has parents Uin a Bayesian network and
+let factorfX(XU)be its conditional probability table (CPT).4If
+f(xu)∈{0,1}for all instantiations xandu, the CPT is said to be
+functional as it speciﬁes a function that maps parent instantiation u
+into the unique value xsatisfyingfX(xu) = 1 . The following CPTs
+are functional:
+X YfY(XY)
+x0y0 0
+x0y1 1
+x1y0 1
+x1y1 0A BfB(AB)
+a0b0 0
+a0b1 1
+a0b2 0
+a1b0 0
+a1b1 0
+a1b2 1
+The ﬁrst speciﬁes the function x0/mapsto→y1,x1/mapsto→y0. The second
+speciﬁes the function a0/mapsto→b1,a1/mapsto→b2. Functional dependen-
+cies encode a common type of background knowledge (examples in
+Section 5). They are a special type of determinism, which generally
+refers to the presence of zero parameters in a CPT. A CPT that has
+zero parameters is not necessarily a functional CPT.
+We will next present two results that empower the VE algorithm
+in the presence of functional CPTs. The results allow us to factor f-
+expressions beyond what is permitted by Theorems 1 and 2, leading
+3https://numpy.org/
+4Since/summationtext
+xP(x|u) = 1 the CPT satisﬁes/summationtext
+xfX(xu) = 1 for every u.to signiﬁcant reduction in complexity. The results do not depend on
+the identity of a functional CPT, only that it is functional. This is
+signiﬁcant when learning model parameters from data.
+To state these results, we will use F,GandHto denote sets of
+factors. Depending on the context, a set of factors Fmay be treated
+as one factor obtained by multiplying members of the set/producttext
+f∈Ff.
+The ﬁrst result says the following. If a functional CPT for variable
+Xappears in both parts of a product, then variable Xcan be summed
+out from one part without changing the value of the product.
+Theorem 3. Consider a functional CPT ffor variableX. Iff∈G
+andf∈H, thenG·H =G/summationtext
+XH.
+Proof. Suppose CPT fis over variables XU. Leth(X)andg(Y)be
+the factors corresponding to HandG, respectively. Let Z=X∪Y
+andX⋆=X\{X}. Then variables XUmust belong to X,YandZ,
+and parents Umust belong to X⋆. Letel=G·H ander=G/summationtext
+XH.
+We want to show el(z) =er(z)for every instantiation z.
+Consider an instantiation zand let u,x⋆,xandybe the instantia-
+tions of U,X⋆,XandYinz. Thenel(z) =g(y)h(x)ander(z) =
+g(y)/summationtext
+xh(xx⋆). Since CPT fis functional, f(xu)∈{0,1}for
+anyxand there is a unique x, call itxu, such thatf(xu) = 1 .
+Iff(xu) = 0 , thenh(xx⋆) = 0 sincef∈H, leading to
+er(z) =g(y)/summationdisplay
+xh(xx⋆) =g(y)/summationdisplay
+x
+f(xu)=1h(xx⋆) =g(y)h(xux⋆).
+Ifxuis the instantiation of Xinz, thenxux⋆=xander(z) =
+g(y)h(x) =el(z). Otherwise, g(y) = 0 sincef∈G, which leads
+toel(z) =er(z) = 0 . Hence,el(z) =er(z)for every instantiation
+zand we haveG·H =G/summationtext
+XH.
+Theorem 3 has a key corollary. If a functional CPT for variable X
+appears in both parts of a product, we can sum out variable Xfrom
+the product by independently summing it out from each part.
+Corollary 1. Consider a functional CPT ffor variableX. Iff∈G
+andf∈H, then/summationtext
+XG·H =/parenleftbig/summationtext
+XG/parenrightbig/parenleftbig/summationtext
+XH/parenrightbig
+.
+Proof./summationtext
+XG·H =/summationtext
+X/parenleftbig
+G/summationtext
+XH/parenrightbig
+by Theorem 3, which equals/parenleftbig/summationtext
+XH/parenrightbig/parenleftbig/summationtext
+XG/parenrightbig
+by Theorem 2.
+Theorem 3 and Corollary 1 may appear unusable as they require
+multiple occurrences of a functional CPT whereas the factors of a
+Bayesian network contain a single (functional) CPT for each vari-
+able. This is where the second result comes in: duplicating a func-
+tional CPT in a product of factors does not change the product value.
+Theorem 4. For functional CPT f, iff∈G, thenf·G=G.
+Proof. Letg(Z)be the product of factors in Gand leth=f·g. Sup-
+pose factorfis the CPT of variable Xand parents U. Consider an in-
+stantiation zand suppose it includes instantiation xu. Iff(xu) = 0 ,
+theng(z) = 0 sincef∈G. Moreover,h(z) =f(xu)g(z) = 0 . If
+f(xu) = 1 , thenh(z) =f(xu)g(z) =g(z). Hence,g(z) =h(z)
+for all instantiations zand we haveG=f·G.
+Theorem 4 holds if fembeds any functional dependency that is
+implied by factorsGinstead of being a functional CPT in Gbut we
+do not pursue the applications of this generalization in this paper.
+To see how Theorems 3 and 4 interplay, consider the f-expression/summationtext
+Xf(XY)g(XZ)h(XW). In the standard VE algorithm, one
+must multiply all three factors before summing out variable X,
+leading to a factor over four variables XYZW . If factorfis
+Figure 1 : An arithmetic circuit (AC) compiled from the Bayesian net-
+workA→B,A→C. The AC computes factor f(B), whereηfis
+the posterior on variable Bgiven evidence on variables AandC.
+a functional CPT for variable X, we can duplicate it by Theo-
+rem 4:f(XY)g(XZ)h(XW) =f(XY)g(XZ)f(XY)h(XW).
+Moreover, Corollary 1 gives/summationtext
+Xf(XY)g(XZ)f(XY)h(XW) =/summationtext
+Xf(XY)g(XZ)/summationtext
+Xf(XY)h(XW), which avoids construct-
+ing a factor over four variables. We show in Section 3 how these the-
+orems enable efﬁcient inference on models with very large treewidth.
+3 Variable Elimination with Functional CPTs
+We now present our proposed VE algorithm. We ﬁrst present a stan-
+dard VE algorithm based on jointrees [18] and then extend it to
+exploit functional CPTs. Our algorithm will not compute probabil-
+ities, but will compile symbolic f-expressions whose factors contain
+symbolic parameters. A symbolic f-expression is compiled once and
+used thereafter to answer multiple queries. Moreover, its parameters
+can be learned from labeled data using gradient descent. We will
+show how to map symbolic f-expressions into tensor graphs in Sec-
+tion 4 and use these graphs for supervised learning in Section 5.
+Once the factors of a symbolic f-expression are unfolded, the result
+is an Arithmetic Circuits (ACs) [9, 4] as shown in Figure 1. In fact,
+the standard VE algorithm we present next is a reﬁnement on the one
+proposed in [9] for extracting ACs from jointrees.
+The next section introduces jointrees and some key concepts that
+we need for the standard and extended VE algorithms.
+3.1 Jointrees
+Consider the Bayesian network in the middle of Figure 2 and its join-
+tree on the left of the ﬁgure. The jointree is simply a tree with factors
+attached to some of its nodes (the circles in Figure 2 are the jointree
+nodes). We use binary jointrees [28], in which each node has either
+one or three neighbors and where nodes with a single neighbor are
+called leaves. The two jointrees in Figure 2 are identical but arranged
+differently. The one on the left has leaf node 2at the top and the one
+on the right has leaf node 3at the top.
+Our use of jointrees deviates from normal for reasons that become
+apparent later. First, we use a binary jointree whose leaves are in
+one-to-one correspondence with model variables. Second, we only
+attach factors to leaf nodes: The CPT and evidence indicator for each
+variableXare assigned to the leaf node icorresponding to variable
+X. Leaf jointree node iis called the host of variableXin this case.5
+5For similar uses and a method for constructing such binary jointrees, see [7]
+and [10, Chapter 8]. Contraction trees which were adopted later for con-
+tracting tensor networks [15] correspond to binary jointrees.Figure 2 : A Bayesian network with a jointree (two views).
+The Bayesian network in Figure 2 has ﬁve variables. Its jointree
+also has ﬁve leaves, each of which hosts a network variable. For ex-
+ample, jointree node 2at the top-left hosts variable D: the CPT and
+evidence indicator for variable Dare assigned to this jointree node.
+A key notion underlying jointrees are edge separators which de-
+termine the space complexity of inference (the rectangles in Figure 2
+are separators). The separator for edge (i,j), denoted sep(i,j), are
+model variables that appear in leaf nodes on both sides of the edge.
+For example, sep(6,7) ={B,C}as these are the model variables
+that appear in jointree leaves {0,2}and{1,3,4}. A related notion is
+thecluster of jointree node i. Ifiis leaf, its cluster are the variables
+appearing at node i. Otherwise, it is the union of separators for edges
+(i,j). Every factor constructed by VE is over the variables of some
+separator or cluster. The time complexity of VE is exponential in the
+size of clusters and linear in the number of nodes in a jointree.
+The size of largest cluster −1is called the jointree width and can-
+not be lower than the Bayesian network treewidth; see [10, Chapter
+9] for a detailed treatment of this subject. When the network contains
+variables with different cardinalities, the size of a cluster is better
+measured by the number of instantiations that its variables has. We
+therefore deﬁne the binary rank of a cluster as log2 of its instantia-
+tion count. The binary rank coincides with the number of variables
+in a cluster when all variables are binary.
+Our technique for exploiting functional dependencies will use
+Theorems 3 and 4 to shrink the size of clusters and separators sig-
+niﬁcantly below jointree width, allowing us to handle networks with
+very large treewidth. The algorithm will basically reduce the maxi-
+mum binary rank of clusters and separators, which can exponentially
+reduce the size of factors constructed by VE during inference.
+3.2 Compiling Symbolic f-expressions using VE
+Suppose we wish to compile an f-expression that computes the pos-
+terior on variable Q. We ﬁrst identify the leaf jointree node hthat
+hosts variable Q. We then arrange the jointree so hosthis at the top
+as in Figure 2. Host hwill then have a single child rwhich we call
+the jointree root. The tree rooted at node ris now a binary tree, with
+each nodeihaving two children c1andc2and a parent p. On the left
+of Figure 2, root r=7has two children c1=0,c2=6and parentp=2.
+We refer to such a jointree arrangement as a jointree view.Jointree views simplify notation. For example, we can now write
+sep(i)to denote the separator between node iand its parent pinstead
+ofsep(i,p). We will adopt this simpler notation from now on.
+We now compile an f-expression using the following equations:
+P⋆(Q) =η=/summationdisplay
+QFhf(r) (1)
+f(i) =
+
+=/summationdisplay
+sep(i)Fiiis leaf
+=/summationdisplay
+sep(i)f(c1)f(c2)ihas children c1,c2(2)
+Here,Fiis the product of factors assigned to leaf node i(CPT and
+evidence indicator for the model variable assigned to node i).
+For the jointree view in Figure 2 (left), applying these equations
+to variableQ=D, hosth=2and rootr=7yields the f-expression:
+P⋆(D) =η=/summationdisplay
+DF2=/summationdisplay
+BC[=/summationdisplay
+CF0][=/summationdisplay
+BC[=/summationdisplay
+ACF4][=/summationdisplay
+AB[=/summationdisplay
+ABF3][=/summationdisplay
+AF1]]].
+This expression results from applying Equation 1 to the host h=2
+followed by applying Equation 2 to each edge in the jointree. Each
+sum in the expression corresponds to a separator and every product
+constructed by the expression will be over the variables of a cluster.
+Our compiled AC is simply the above f-expression. The value of
+the expression represents the circuit output. The evidence indicators
+in the expression represent the circuit inputs. Finally, the CPTs of the
+expression contain the circuit parameters (see the AC in Figure 1).
+We will now introduce new notation to explain Equations 1 and 2
+as we need this understanding in the following section; see also [10,
+Chapter 7]. For node iin a jointree view, we use/slurbelowFito denote the
+set of factors at or below node i. We also use/sluraboveFito denote the set
+of factors above node i. Consider node 6on the left of Figure 2.
+Then/slurbelowF6contains the factors assigned to leaf nodes {1,3,4}and/sluraboveF6
+contains the factors assigned to leaf nodes {0,2}.
+For a jointree view with host hand rootr,/sluraboveFr/slurbelowFrcontains all fac-
+tors in the jointree and/sluraboveFr=Fh. Equation 1 computes η/summationtext=
+Q/sluraboveFr/slurbelowFr,
+while delegating the computation of product/slurbelowFrto Equation 2, which
+actually computes/summationtext=
+sep(r)/slurbelowFrby summing out all variables but for
+ones in sep(r). The equation uses the decomposition/slurbelowFi=/slurbelowFc1/slurbelowFc2
+to sum out variables more aggressively:
+f(i) ==/summationdisplay
+sep(i)/slurbelowFi==/summationdisplay
+sep(i)/slurbelowFc1/slurbelowFc2 (3)
+==/summationdisplay
+sep(i)
+=/summationdisplay
+sep(c1)/slurbelowFc1
+
+=/summationdisplay
+sep(c2)/slurbelowFc2
+.
+The rule employed by Equation 2 is simple: sum out from product/slurbelowFiall variables except ones appearing in product/sluraboveFi(Theorem 2).
+The only variables shared between factors/slurbelowFiand/sluraboveFiare the ones in
+sep(i)so Equation 2 is exploiting Theorem 2 to the max. The earlier
+that variables are summed out, the smaller the factors we need to
+multiply and the smaller the f-expressions that VE compiles.
+3.3 Exploiting Functional Dependencies
+We now present an algorithm that uses Theorems 3 and 4 to sum out
+variables earlier than is licensed by Theorems 1 and 2. Here, ‘earlier’
+means lower in the jointree view which leads to smaller factors.1:procedure SHRINK SEP(r, h)
+2: X←variable assigned to host h
+3: ifX∈fvars (r)then
+4: sep(r)-={X}
+5: end if
+6: SUM(r)
+7:end procedure
+8:procedure SUM(i)
+9: ifleaf node ithen
+10: return
+11: end if
+12: c1, c2←children of node i
+13: X←fvars (c1)∩fvars (c2)
+14: c←either c1orc2
+15: sep(c)-=X
+16: sep(c1)&=sep(c2)∪sep(i)
+17: sep(c2)&=sep(c1)∪sep(i)
+18: SUM(c1)
+19: SUM(c2)
+20:end procedure
+Figure 3 :Left: Algorithm for shrinking separators based on func-
+tional CPTs. Right: An application of the algorithm where dropped
+variables are colored red. Variables BandChave functional CPTs.
+Our algorithm uses the notation fvars (i)to denote the set of
+variables that have a functional CPT at or below node iin the join-
+tree view. For example, in Figure 3, we have fvars (8) ={B,C},
+fvars (11) ={B}andfvars (2) ={}.
+The algorithm is depicted in Figure 3 and is a direct application
+of Theorem 3 with a few subtleties. The algorithm traverses the join-
+tree view top-down, removing variables from the separators of visited
+nodes. It is called on root rand hosthof the view, SHRINK SEP(r,h).
+It ﬁrst shrinks the separator of root rwhich decomposes the set of
+factors into/sluraboveFr/slurbelowFr. The only functional CPT that can be shared be-
+tween factors/sluraboveFrand/slurbelowFris the one for variable Xassigned to host h.
+If variableXis functional and its CPT is shared, Theorem 3 imme-
+diately gives/sluraboveFr/slurbelowFr=/sluraboveFr/summationtext
+X/slurbelowFr. VariableXcan then be summed
+at rootrby dropping it from sep(r)as done on line 4.
+The algorithm then recurses on the children of root r. The algo-
+rithm processes both children c1andc2of a node before it recurses
+on these children. This is critical as we explain later. The set Xcom-
+puted on line 13 contains variables that have functional CPTs in both
+factors/slurbelowFc1and factors/slurbelowFc2(recall Equation 3). Theorem 3 allows
+us to sum out these variables from either/slurbelowFc1or/slurbelowFc2but not both, a
+choice that is made on line 14. A variable that has a functional CPT
+in both/slurbelowFc1and/slurbelowFc2is summed out from one of them by dropping
+it from either sep(c1)orsep(c2)on line 15. In our implementation,
+we heuristically choose a child based on the size of separators below
+it. We add the sizes of these separators (number of instantiations) and
+choose the child with the largest size breaking ties arbitrarily.
+If a variable is summed out at node iand at its child c2, we
+can sum it out earlier at child c1by Theorem 2 (classical VE):/summationtext
+X(/slurbelowFc1/summationtext
+X/slurbelowFc2) = (/summationtext
+X/slurbelowFc1)(/summationtext
+X/slurbelowFc2). A symmetric situa-
+tion arrises for child c2. This is handled on lines 16-17. Applying
+Theorem 2 in this context demands that we process nodes c1andc2
+before we process their children. Otherwise, the reduction of sep-
+arators sep(c1)andsep(c2)will not propagate downwards early
+enough, missing opportunities for applying Theorem 2 further.
+Figure 3 depicts an example of applying algorithm SHRINK SEP
+to a jointree view for the Bayesian network in Figure 2. Variables
+colored red are dropped by SHRINK SEP. The algorithm starts by
+processing root r= 5, dropping variable Bfrom sep(5)on line 4.It then processes children c1= 6 andc2= 8 simultaneously. Since
+both children contain a functional CPT for variable C, the variable
+can be dropped from either sep(6)orsep(8). Childc2= 8 is cho-
+sen in this case and variable Cis dropped from sep(8). We have
+sep(6) ={A,C}andsep(8) ={A,B}at this point. Lines 16-17
+shrink these separators further to sep(6) ={A}andsep(8) ={A}.
+Our proposed technique for shrinking separators will have an ef-
+fect only when functional CPTs have multiple occurrences in a join-
+tree (otherwise, set Xon line 13 is always empty). While this devi-
+ates from the standard use of jointrees, replicating functional CPTs
+is licensed by Theorem 4. The (heuristic) approach we adopted for
+replicating functional CPTs in a jointree is based on replicating them
+in the Bayesian network. Suppose variable Xhas a functional CPT
+and children C1,...,C nin the network, where n > 1. We replace
+variableXwith replicas X1,...,X n. Each replica Xihas a single
+childCiand the same parents as X. We then construct a jointree for
+the resulting network and ﬁnally replace each replica XibyXin the
+jointree. This creates nreplicas of the functional CPT in the jointree.
+Replicating functional CPTs leads to jointrees with more nodes, but
+smaller separators and clusters as we shall see in Section 5.
+4 Mapping ACs into Tensor Graphs
+We discuss next how we map ACs (symbolic f-expressions) into ten-
+sors graphs for efﬁcient inference and learning. Our implementation
+is part of the P YTAC system under development by the author. P Y-
+TAC is built on top of TensorFlow and will be open sourced.
+Atensor is a data structure for a multi-dimensional array. The
+shape of a tensor deﬁnes the array dimensions. A tensor with shape
+(2,2,3)has2×2×3elements orentries. The dimensions of a ten-
+sor are numbered and called axes. The number of axes is the tensor
+rank. Tensor computations can be organized into a tensor graph: a
+data ﬂow graph with nodes representing tensor operations. Tensors
+form the basis of many machine learning tools today.
+A factor over variables X1,...,X ncan be represented by a ten-
+sor with rank nand shape (d1,...,d n), wherediis the cardinality of
+variableXi(i.e., its number of values). Factor operations can then be
+implemented using tensor operations, leading to a few advantages.
+First, tensor operations are heavily optimized to take advantage of
+special instruction sets and architectures (on CPUs and GPUs) so
+they can be orders of magnitude faster than standard implementations
+of factor operations (even on laptops). Next, the elements of a tensor
+can be variables, allowing one to represent symbolic f-expressions,
+which is essential for mapping ACs into tensor graphs that can be
+trained. Finally, tools such as TensorFlow and PyTorch provide sup-
+port for computing the partial derivates of a tensor graph with respect
+to tensor elements, and come with effective gradient descent algo-
+rithms for optimizing tensor graphs (and hence ACs). This is very
+useful for training ACs from labeled data as we do in Section 5.
+To map ACs (symbolic f-expressions) into tensor graphs, we need
+to implement factor multiplication, summation and normalization.
+Mapping factor summation and normalization into tensor operations
+is straightforward: summation has a corresponding tensor operation
+(TF.REDUCE SUM) and normalization can be implemented using ten-
+sor summation and division. Factor multiplication does not have a
+corresponding tensor operation and leads to some complications.6
+6Tensor multiplication is pointwise while factors are normally over different
+sets of variables. Hence, multiplying the tensors corresponding to factors
+f(ABC )andg(BDE )does not yield the expected result. The simplest
+option is to use TF.EINSUM , which can perform factor multiplication if we
+pass it the string “abc, bde – >abcde” ( https://www.tensorflow.We bypassed these complications in the process of achieving
+something more ambitious. Consider Equation 2 which contains al-
+most all multiplications performed by VE. Factors f1(c1),f2(c2)
+and the result f(i)are over separators sep(c1),sep(c2)andsep(i).
+This equation multiplies factors f1andf2to yield a factor over vari-
+ables sep(c1)∪sep(c2)and then shrinks it by summation into a fac-
+tor over variables sep(i). We wanted to avoid constructing the larger
+factor before shrinking it. That is, we wanted to multiply-then-sum in
+one shot as this can reduce the size of our tensor graphs signiﬁcantly.7
+A key observation allows this using standard tensor operations.
+The previous separators are all connected to jointree node iso they
+satisfy the following property [10, Chapter 9]: If a variable appears in
+one separator, it also appears in at least one other separator. Variables
+sep(c1)∪sep(c2)∪sep(i)can then be partitioned as follows:8
+C: variables in f1,f2andf,sep(c1)∩sep(c2)∩sep(i)
+X: variables in f1,fbut notf2,(sep(c1)∩sep(i))\sep(c2)
+Y: variables in f2,fbut notf1,(sep(c2)∩sep(i))\sep(c1)
+S: variables in f1,f2but notf,(sep(c1)∩sep(c2))\sep(i)
+where variables Sare the ones summed out by Equation 2. The vari-
+ables in each factor can now be structured as follows: f1(C,X,S),
+f2(C,Y,S)andf(C,X,Y). We actually group each set of vari-
+ablesC,X,YandSinto a single compound variable so that factors
+f1,f2andfcan each be represented by a rank- 3tensor. We then use
+the tensor operation for matrix multiplication TF.MATMUL to com-
+putef=/summationtext
+Sf1f2in one shot, without having to construct a tensor
+for the product f1f2. Matrix multiplication is perhaps one of the most
+optimized tensor operations on both CPUs and GPUs.
+Preparing tensors f1(C,X,S)andf2(C,Y,S)for matrix mul-
+tiplication requires two operations: TF.RESHAPE which aggregate
+variables into compound dimensions and TF.TRANSPOSE which or-
+der the resulting dimensions so TF.MATMUL can mapf1andf2into
+f(C,X,Y). The common dimension Cmust appear ﬁrst in f1and
+f2. Moreover, the last two dimensions must be ordered as (X,S)and
+(S,Y)but TF.MATMUL can transpose the last two dimensions of an
+input tensor on the ﬂy if needed. Using matrix multiplication in this
+fashion had a signiﬁcant impact on reducing the size of tensor graphs
+and the efﬁciency of evaluating them, despite the added expense of
+using TF.TRANSPOSE and TF.RESHAPE operations (the latter opera-
+tion does not use space and is very efﬁcient).
+PYTAC represents ACs using an abstract tensor graph called an
+ops graph, which can be mapped into a particular tensor implemen-
+tation depending on the used machine learning tool. P YTAC also has
+a dimension management utility, which associates each tensor with
+its structured dimensions while ensuring that all tensors are struc-
+tured appropriately so operations can be applied to them efﬁciently.
+We currently map an ops graph into a TF.GRAPH object, using the
+TF.FUNCTION utility introduced recently in TensorFlow 2.0.0. P Y-
+TAC also supports the recently introduced Testing Arithmetic Cir-
+cuits (TACs), which augment ACs with testing units that turns them
+into universal function approximators like neural networks [6, 5, 27].
+org/api_docs/python/tf/einsum ). We found this too inefﬁcient
+though for extensive use as it performs too many tensor transpositions.
+One can also use the technique of broadcasting by adding trivial di-
+mensions to align tensors ( https://www.tensorflow.org/xla/
+broadcasting ), but broadcasting has limited support in TensorFlow re-
+quiring tensors with small enough ranks.
+7See a discussion of this space issue in [10, Chapter 7].
+8In a jointree, every separator that is connected to a node is a subset of
+the union of other separators connected to that node. Hence, sep(i)⊆
+sep(c1)∪sep(c2).5 Case Studies
+We next evaluate the proposed VE algorithm on two classes of mod-
+els that have abundant functional dependencies. We also evaluate the
+algorithm on randomly generated Bayesian networks while varying
+the amount of functional dependencies. The binary jointrees con-
+structed for these models are very large and prohibit inference us-
+ing standard VE. We constructed these binary jointrees from variable
+elimination orders using the method proposed in [7]; see also [10,
+Chapter 9]. The elimination orders were obtained by the minﬁll
+heuristic; see, e.g., [20].9
+5.1 Rectangle Model
+We ﬁrst consider a generative model for rectangles shown in Fig-
+ure 4. In an image of size n×n, a rectangle is deﬁned by its upper
+left corner ( row,col),height andwidth . Each of these variables
+hasnvalues. The rectangle also has a binary label variable, which
+is either tall or wide. Each row has a binary variable rowiindicating
+whether the rectangle will render in that row ( nvariables total). Each
+column has a similar variable colj. We also have n2binary variables
+which correspond to image pixels ( pixelij) indicating whether the
+pixel is on or off. This model can be used to predict rectangle at-
+tributes from noisy images such as those shown in Figure 4. We use
+the model to predict whether a rectangle is tall or wide by compiling
+an AC with variable label as output and variables pixelijas input.
+The AC computes a distribution on label given a noisy image as
+evidence and can be trained from labeled data using cross entropy as
+the loss function.10
+Our focus is on the variables rowiandcoljwhich are determined
+byrow/height andcol/width , respectively (for example, rowiis
+on iff row≤i<row+height ). In particular, we will investigate the
+impact of these functional relationships on the efﬁciency of our VE
+compilation algorithm and their impact on learning AC parameters
+from labeled data. Our experiments were run on a MacBook Pro, 2.2
+GHz Intel Core i7, with 32 GB RAM.
+Table 1 depicts statistics on ACs that we compiled using our pro-
+posed VE algorithm. For each image size, we compiled an AC for
+predicting the rectangle label while exploiting functional CPTs to
+remove variables from separators during the compilation process. As
+shown in the table, exploiting functional CPTs has a dramatic im-
+pact on the complexity of VE. This is indicated by the size of largest
+jointree cluster (binary rank) in a classical jointree vs one whose sep-
+arators and clusters where shrunk due to functional dependencies.11
+Recall that a factor over a cluster will have a size exponential in the
+cluster binary rank (the same for factors over separators). The table
+also shows the size of compiled ACs, which is the sum of tensor sizes
+in the corresponding tensor graph (the tensor size is the number of
+elements/entries it has). For a baseline, the AC obtained by standard
+9The minﬁll heuristic and similar ones aim for jointrees that minimize the
+size of largest cluster (i.e., treewidth). It was observed recently that min-
+imizing the size of largest separator (called max rank ) is more desirable
+when using tensors since the memory requirements of Equation 2 can de-
+pend only on the size of separators not clusters (see [14] for recent methods
+that optimize max rank). This observation holds even when using classi-
+cal implementations of the jointree algorithm and was exploited earlier to
+reduce the memory requirements of jointree inference; see, e.g., [22, 13].
+10Arthur Choi suggested the use of rectangle models and Haiying Huang
+proposed this particular version of the model.
+11We applied standard node and value pruning to the Bayesian network be-
+fore computing a jointree and shrinking it. This has more effect on the
+digits model in Section 5.2. For example, it can infer that some pixels will
+never be turned on as they will never be occupied by any digit.Figure 4 :Left: A generative model for rectangles. Right: Examples of clean and noisy rectangle images.
+Figure 5 :Left: A generative model for seven-segment digits. Middle: Examples of noisy digit images. Right: Seven-segment digit.
+VE (without exploiting functional CPTs) for an image of size 20×20
+is18,032,742,365, which is about 80times larger than the size of
+AC reported in Table 1. What is particularly impressive is the time
+it takes to evaluate these ACs (compute their output from input). On
+average it takes about 7milliseconds to evaluate an AC of size ten
+million for these models, which shows the promise tensor-based im-
+plementations (these experiments were run on a laptop).
+We next investigate the impact of integrating background knowl-
+edge when learning AC parameters. For training, we generated la-
+beled data for all clean images of rectangles and added nnoisy im-
+ages for each (with the same label). Noise is generated by randomly
+ﬂippingmin(n,a−1,b/2)background pixels, where ais the num-
+ber of rectangle pixels and bis the number of background pixels. We
+used the same process for testing data, except that we increased the
+number of noisy pixels to min(2∗n,a−1,b/2)and doubled the
+number of noisy images. We trained the AC using cross entropy as
+the loss function to minimize the classiﬁcation accuracy.12
+Table 2 shows the accuracy of classifying rectangles (tall vs wide)
+on10×10images using ACs with and without background knowl-
+edge. ACs compiled from models with background knowledge have
+fewer parameters and therefore need less data to train. The training
+and testing examples were selected randomly from the datasets de-
+scribed above with 1000 examples always used for testing, regardless
+of the training data size. Each classiﬁcation accuracy is the average
+over twenty ﬁve runs. The table clearly shows that integrating back-
+ground knowledge into the compiled AC yields higher classiﬁcation
+accuracies given a ﬁxed number of training examples.
+5.2 Digits Model
+We next consider a generative model for seven-segment dig-
+its shown in Figure 5 ( https://en.wikipedia.org/wiki/
+Seven-segment_display ). The main goal of this model is to
+recognize digits in noisy images such as those shown in Figure 5.
+The model has four vertical and three horizontal segments. A digit
+is generated by activating some of the segments. For example, digit
+12Some of the CPTs contain zero parameters but are not functional, such
+as the ones for width andheight . We ﬁxed these zeros in the AC when
+learning with background knowledge. We also tied the parameters of the
+pixelijvariables therefore learning one CPT for all of them.Table 1 : Size and compile/evaluation time for ACs that compute the
+posterior on rectangle label. Reported times are in seconds. Evalua-
+tion time is the average of evaluating an AC over a batch of examples.
+Image Functional Network Max Cluster Size AC Eval Compile
+Size CPTs Nodes rank binary rank Size Time Time
+8×8 85 11 15.0926,778 .001 4.9 197 5 13.0
+10×10 125 13 17.63,518,848 .003 2.9 305 5 14.3
+12×12 173 15 20.210,485,538 .007 4.1 437 5 15.3
+14×14 229 17 22.626,412,192 .018 5.7 593 5 16.2
+16×16 293 19 25.058,814,458 .034 7.4 773 5 17.0
+20×20 445 23 29.6224,211,138 .140 14.1 1205 5 18.3
+Table 2 : Classiﬁcation accuracy on 10×10noisy rectangle images.
+Testing data included 1000 examples in each case.
+FunctionalAccuracyNumber of Training Examples Param
+CPTs 25 50 100 250 500 1000 Count
+ﬁxed in ACmean 82.64 89.16 96.08 97.92 99.51 98.39136stdev 15.06 11.98 8.34 5.56 0.62 7.00
+trainablemean 53.29 56.92 62.20 74.62 84.94 88.694,428stdev 1.89 5.31 6.95 5.29 3.14 2.79
+Table 3 : Size and compile/evaluation time for ACs that compute a
+posterior over digits. Reported times are in seconds. Evaluation time
+is the average of evaluating an AC over a batch of examples.
+Image Functional Network Max Cluster Size AC Eval Compile
+Size CPTs Nodes rank binary rank Size Time Time
+8×8 638 32 33.3264,357 .008 9.3 1155 9 12.6
+10×10 954 59 60.82,241,205 .008 13.6 2173 9 14.1
+12×12 1334 81 83.811,625,558 .014 23.2 3469 10 16.7
+14×14 1778 116 121.032,057,227 .030 36.8 5007 11 18.4
+16×16 2286 134 140.095,094,167 .076 50.4 6825 11 19.3
+Table 4 : Classiﬁcation accuracy on 10×10noisy digit images. Test-
+ing data included 1000 examples in each case.
+FunctionalAccuracyNumber of Training Examples Param
+CPTs 25 50 100 250 500 1000 Count
+ﬁxed in ACmean 83.51 89.17 94.94 97.68 98.49 98.44275stdev 8.70 6.02 4.57 1.45 0.91 0.27
+trainablemean 9.82 12.26 13.28 22.36 29.51 35.6722,797stdev 0.77 2.25 3.32 3.45 2.40 1.578is generated by activating all segments and digit 1by activating
+two vertical segments. Segments are represented by rectangles as in
+the previous section, so this model integrates seven rectangle mod-
+els. A digit has a location speciﬁed by the row and column of its
+upper-left corner (height is seven pixels and width is four pixels).
+Moreover, each segment has an activation node which is turned on
+or off depending on the digit. When this activation node is off, seg-
+ment pixels are also turned off. An image of size n×nhasn2pixels
+whose values are determined by the pixels generated by segments.
+This is a much more complex and larger model than the rectangle
+model and also has an abundance of functional dependencies. It is
+also much more challenging computationally. This can be seen by
+examining Tables 3, which reports the size of largest clusters in the
+jointrees for this model. For example, the model for 16×16images
+has a cluster with a binary rank of 140. This means that standard
+VE would have to construct a factor of size 2140which is impossi-
+ble. Our proposed technique for exploiting functional dependencies
+makes this possible though as it reduces the binary rank of largest
+cluster down to 19.3. And even though the corresponding AC has
+size of about one hundred million, it can be evaluated in about 76
+milliseconds. The AC compilation times are also relatively modest.
+We trained the compiled ACs as we did in the previous section. We
+generated all clean images and added noise as follows. For each clean
+image we added 100noisy images for training and 200for testing by
+randomly ﬂipping nbackground pixels where nis the image size.
+Table 4 parallels the one for the rectangle model. We trained two
+ACs, one that integrates background knowledge and one that does
+not. The former AC has fewer parameters and therefore requires less
+data to train. While this is expected, it is still interesting to see how
+little data one needs to get reasonable accuracies. In general, Tables 3
+and 4 reveal the same patterns of the rectangle model: exploiting
+functional dependencies leads to a dramatic reduction in the AC size
+and integrating background knowledge into the compiled AC signif-
+icantly improves learnability.
+5.3 Random Bayesian Networks
+Table 5 : Reduction in maximum cluster size due to exploiting func-
+tional dependencies. The number of values a node has was cho-
+sen randomly from (2,3). We averaged over 10random networks
+for each combination of network node count, maximal parent count
+and the percentage of nodes having functional CPTs. The parents
+of a node and their count where chosen randomly. Functional nodes
+where chosen randomly from non-root nodes. The binary rank of a
+cluster is log2 of the number of its instantiations.
+Network Maximal Percentage Binary Rank of Largest Cluster
+Node Parent Functional Original Jointree Shrunk Jointree Reduction
+Count Count Nodes % mean stdev mean stdev mean stdev
+75 425 22.4 2.8 19.4 3.1 3.0 1.7
+50 22.5 2.2 16.9 1.8 5.6 2.5
+67 22.9 3.9 13.1 2.3 9.8 3.4
+80 21.9 2.7 11.1 1.9 10.8 3.2
+100 525 38.7 4.5 33.1 4.6 5.7 2.0
+50 38.1 2.9 23.7 3.3 14.4 4.3
+67 38.0 3.2 18.9 3.1 19.1 3.9
+80 36.8 3.0 13.5 2.5 23.3 3.1
+150 625 64.3 5.4 54.2 4.4 10.1 4.2
+50 64.9 3.2 41.9 5.6 23.0 5.1
+67 64.3 6.0 28.2 4.2 36.0 4.7
+80 66.4 4.8 21.3 4.6 45.1 2.1
+We next present two experiments on randomly generated Bayesian
+networks. The ﬁrst experiment further evaluates our proposed algo-
+rithm for exploiting functional dependencies. The second experimentTable 6 : Comparing evaluation time of three AC representations:
+Tensor graph ( TenG ), scalar graph ( ScaG ) and scalar-batch graph
+(ScaBaG ). We averaged over 10random Bayesian networks for each
+combination of batch size and limit on circuit size. AC size limit is in
+millions of nodes. The binary rank of a tensor is log2 of the number
+of its entries. Maximum binary rank is for the largest tensor in the
+tensor graph. Normalized time (tensor graph) is evaluation time per
+one million AC nodes (a node is a tensor entry). Each cell below con-
+tains the mean (top) and stdev (bottom). Times are in milliseconds.
+Batch Tensor Graph (TenG) Milliseconds Slow Down Factor
+Size Limit on Actual Max Binary TenG Time ScaG / TenG ScaBaG / TenG
+Size Size Rank Normalized Time Ratio Time Ratio
+15-10M6,992,414 19.7 66.6 11.5 47.0
+1,830,909 0.7 20.6 4.6 20.3
+15-20M17,979,799 21.2 34.3 22.2 82.1
+1,391,918 0.5 3.0 7.1 23.7
+25-30M26,540,961 21.6 20.8 38.4 137.3
+1,154,660 0.5 4.6 14.6 56.1
+35-40M37,058,914 21.8 16.0 50.3 177.2
+1,349,479 0.4 3.5 32.1 128.7
+105-10M8,157,025 20.0 7.8 112.3 38.0
+1,599,408 0.5 2.3 45.9 24.8
+15-20M17,504,179 20.7 4.6 148.0 54.2
+1,482,496 0.5 1.3 64.9 33.3
+25-30M27,728,478 21.7 4.5 209.7 60.1
+2,029,237 0.9 1.3 51.0 17.0
+35-40M37,850,485 22.1 4.0 244.0 70.0
+1,547,389 0.6 1.1 95.4 26.3
+205-10M6,506,125 19.6 4.9 135.3 26.9
+860,631 0.7 1.9 42.2 11.1
+15-20M17,766,240 20.7 3.1 251.5 39.9
+1,209,040 0.5 1.3 123.7 15.2
+25-30M27,762,672 21.7 3.1 271.9 46.0
+1,148,761 0.5 1.1 92.4 17.7
+35-40M37,620,063 22.1 3.0 287.5 44.3
+1,416,214 0.3 1.2 118.9 19.7
+reinforces our motivation for working with dense representations of
+factors and the corresponding tensor-based implementations.13
+We generated Bayesian networks by starting with a linear order
+of nodesV1,...,V nand a maximum number of parents per node
+k. For each node Vi, we randomly determined a number of parents
+≤kand chose the parents randomly from the set V1,...,V i−1. We
+then selected a ﬁxed percentage fof non-root nodes and gave them
+functional CPTs, where each node had cardinality two or three.
+In the ﬁrst experiment, we considered networks with different
+number of nodes n, maximum number of parents kand percentage
+of functional nodes f. For each combination, we generated 10net-
+works, computed a binary jointree and averaged the size of largest
+cluster. We then applied our algorithm for exploiting functional de-
+pendencies and obtained a jointree with shrunk clusters and separa-
+tors while also noting the size of largest cluster.
+Table 5 depicts our results, where we report the size of a largest
+cluster in terms of its binary rank: log2 of its instantiations count.
+As can be seen from Table 5, our algorithm leads to substantial re-
+ductions in binary rank, where the reduction increases as the frac-
+tion of functional nodes increases. Recall that our algorithm includes
+two heuristics: one for deciding how to replicate functional CPTs
+when building a jointree and another corresponding to the choice on
+Line 14 in Figure 3. Table 5 provides some evidence on the efﬁcacy
+of these heuristics beyond the rectangle and digits case studies we
+discussed earlier.
+The second experiment compares classical and tensor-based im-
+plementations of ACs. In a classical implementation, the AC is rep-
+resented as a directed acyclic graph where root nodes correspond to
+scalars and other nodes correspond to scalar arithmetic operations;
+see Figure 1. We will call this the scalar graph representation. In
+a tensor-based implementation, the AC is represented using a ten-
+sor graph where root nodes correspond to tensors (i.e., factors) and
+13The experiments of this section were run on a server with dual Intel(R)
+Xeon E5-2670 CPUs running at 2.60GHz and 256GB RAM.1:procedure EVALUATE SCALAR GRAPH (graph nodes)
+2: fornin graph nodes: do
+3: c1, c2 = n.child1, n.child2
+4: ifn.type == ’add’ then
+5: n.value = c1.value + c2.value
+6: else if n.type == ’mul’ then
+7: n.value = c1.value * c2.value
+8: else if n.type == ’div’ then
+9: n.value = c1.value / c2.value
+10: end if
+11: end for
+12:end procedure
+Figure 6 : Evaluating a scalar graph representation of an AC. The
+graph nodes are topologically sorted so the children of a node are
+evaluated before the node is evaluated. The evaluation of a scalar-
+batch representation is similar except that node values are NumPy
+ndarrays and +,∗,/are ndarray (tensor) operations.
+other nodes correspond to tensor operations (i.e., factor operations)
+as discussed in Section 4. The main beneﬁt of a tensor-based imple-
+mentation is that tensor operations can be parallelized on CPUs and
+GPUs (for example, NumPy and tools such as TensorFlow leverage
+Single Instruction Multiple Data (SIMD) parallelism on CPUs).14
+Before we present the results of this experiment, we need to dis-
+cuss the notion of a batch which is a set of AC input vectors. When
+learning the parameters of an AC using gradient descent, the dataset
+or a subset of it can be viewed as a batch so we would be interested
+in evaluating the AC on a batch. A scalar graph would need to be
+evaluated on each input vector in a batch separately. However, when
+representing the AC as a tensor graph we can treat the batch as a ten-
+sor. This allows us to evaluate the AC on a batch to yield a batch of
+marginals, which creates more opportunities for parallelism.
+There is middle grounds though: a scalar graph with a batch that
+we shall call the scalar-batch graph. This is a tensor graph except
+that each tensor has two dimensions only: a batch dimension and a
+scalar dimension. For example, if the batch has size b, then a tensor
+will have shape (b,1). In a scalar-batch graph, each tensor is a set of
+scalars, one for each member of the batch (AC input vector).
+Scalar-batch graphs can be used in situations where a full tensor
+graph cannot be used. This includes situations where the AC is com-
+piled using techniques such as knowledge compilation, which pro-
+duce ACs that cannot be cast in terms of tensor operations. A scalar-
+batch graph can be used in this case to offer an opportunity for par-
+allelism, even if limited, especially when training the AC from data.
+Table 6 compares the three discussed AC representations in terms
+of their evaluation time, while varying the batch size and AC size.
+The tensor graph implementation is the one we discussed in Sec-
+tion 4 using TensorFlow. The scalar graph implementation uses a
+Python list to store the DAG nodes (parents before children) and then
+uses the pseudocode in Figure 6 to evaluate the DAG. We extract the
+DAG from the tensor graph where each DAG node corresponds to
+a tensor entry. The scalar-batch graph is represented similarly to the
+scalar graph except that members of the list are NumPy ndarrays of
+shape (b,1)instead of scalars (we found NumPy to be more efﬁcient
+than TensorFlow for this task). The evaluation time for both scalar
+graphs and scalar-batch graphs are therefore based on benchmarking
+the code in Figure 6 (we only measure the time of arithmetic opera-
+tions, excluding setting evidence on root nodes and other overhead).
+The networks in Table 6 were generated randomly as in the pre-
+vious experiment, with 100nodes and a maximum of 5parents per
+14https://en.wikipedia.org/wiki/SIMDnode. For each limit on the AC size, we kept generating Bayesian
+networks randomly until we found 10networks whose compilations
+yielded tensor graphs within the given size limit. The tensor graph
+normalized time in Table 6 is the total time to evaluate the graph di-
+vided by the batch size, then divided again by the size of the graph
+over1000,000. Normalized time is then the average time for eval-
+uating one million AC nodes (tensor entries) and is meant to give a
+sense of speed independent of the batch and AC size.
+We now have a number of observations on Table 6. The tensor
+graph is faster than the scalar and scalar-batch graphs in all cases
+and sometimes by two orders of magnitude. This can be seen in the
+last two columns of Table 6 which report the evaluation times (whole
+batch) of scalar and scalar-batch graphs over the evaluation time of
+tensor graph. The gap between tensor and scalar graphs increases
+with the batch size and with AC size as this means more opportu-
+nities to exploit parallelism on two fronts that the scalar graph can-
+not take advantage of. The gap between the tensor and scalar-batch
+graphs increases with AC size, but decreases with batch size. Increas-
+ing the AC size correlates with increasing the size of tensors (at least
+the largest one in the fourth column) which creates more opportuni-
+ties for exploiting parallelism that the scalar-batch graph cannot ex-
+ploit. However, increasing the batch size can be exploited by both the
+tensor and scalar-batch graphs, therefore narrowing the gap (NumPy
+appears to be exploiting the batch more effectively than TensorFlow).
+The scalar graph is faster than the scalar-batch graph when the batch
+size is 1, but otherwise is slower. This is to be expected as there is
+no need for the extra overhead of NumPy ndarrays in this case. We
+ﬁnally emphasize the absolute evaluation times for the tensor graph,
+which amount to a few milliseconds per one million AC nodes (nor-
+malized time) when the batch and AC size are large enough.
+6 Conclusion
+We presented new results on the algorithm of variable elimination
+that exploit functional dependencies using dense factors, allowing
+one to beneﬁt from tensor-based technologies for more efﬁcient in-
+ference and learning. We also presented case studies that show the
+promise of proposed techniques. In contrast to earlier approaches,
+the proposed one does not dependent on the identity of functional de-
+pendencies, only that they are present. This has further applications
+to exact inference (exploiting inferred functional dependencies) and
+to approximate inference (treating CPTs with extreme probabilities
+as functional CPTs) which we plan to pursue in future work.
+ACKNOWLEDGEMENTS
+I wish to thank members of the Automated Reasoning Group at
+UCLA who provided valuable motivation and feedback: Arthur
+Choi, Yizou Chen, Haiying Huang and Jason Shen. This work has
+been partially supported by grants from NSF IIS-1910317, ONR
+N00014-18-1-2561 and DARPA N66001-17-2-4032.
+REFERENCES
+[1] Yoshua Bengio, Pascal Lamblin, Dan Popovici, and Hugo Larochelle,
+‘Greedy layer-wise training of deep networks’, in Advances in Neural
+Information Processing Systems 19 (NIPS) , pp. 153–160, (2006).
+[2] Mark Chavira and Adnan Darwiche, ‘On probabilistic inference by
+weighted model counting’, Artiﬁcial Intelligence ,172(6–7), 772–799,
+(April 2008).
+[3] Mark Chavira, Adnan Darwiche, and Manfred Jaeger, ‘Compiling rela-
+tional bayesian networks for exact inference’, Int. J. Approx. Reason-
+ing,42(1-2), 4–20, (2006).[4] Arthur Choi and Adnan Darwiche, ‘On relaxing determinism in arith-
+metic circuits’, in Proceedings of the Thirty-Fourth International Con-
+ference on Machine Learning (ICML) , pp. 825–833, (2017).
+[5] Arthur Choi and Adnan Darwiche, ‘On the relative expressiveness of
+bayesian and neural networks’, in PGM , volume 72 of Proceedings of
+Machine Learning Research , pp. 157–168. PMLR, (2018).
+[6] Arthur Choi, Ruocheng Wang, and Adnan Darwiche, ‘On the relative
+expressiveness of bayesian and neural networks’, International Journal
+of Approximate Reasoning ,113, 303–323, (2019).
+[7] Adnan Darwiche, ‘Recursive conditioning’, Artif. Intell. ,126(1-2), 5–
+41, (2001).
+[8] Adnan Darwiche, ‘A logical approach to factoring belief networks’, in
+Proceedings of the Eights International Conference on Principles and
+Knowledge Representation and Reasoning (KR) , pp. 409–420, (2002).
+[9] Adnan Darwiche, ‘A differential approach to inference in Bayesian net-
+works’, Journal of the ACM (JACM) ,50(3), 280–305, (2003).
+[10] Adnan Darwiche, Modeling and Reasoning with Bayesian Networks ,
+Cambridge University Press, 2009.
+[11] Rina Dechter, ‘Bucket elimination: A unifying framework for proba-
+bilistic inference’, in Proceedings of the Twelfth Annual Conference on
+Uncertainty in Artiﬁcial Intelligence (UAI) , pp. 211–219, (1996).
+[12] Rina Dechter, Constraint processing , Elsevier Morgan Kaufmann,
+2003.
+[13] Rina Dechter and Yousri El Fattah, ‘Topological parameters for time-
+space tradeoff’, Artif. Intell. ,125(1-2), 93–118, (2001).
+[14] Jeffrey M. Dudek, Leonardo Due ˜nas-Osorio, and Moshe Y . Vardi, ‘Efﬁ-
+cient contraction of large tensor networks for weighted model counting
+through graph decompositions’, CoRR ,abs/1908.04381 , (2019).
+[15] Glen Evenbly and Robert N. C. Pfeifer, ‘Improving the efﬁciency of
+variational tensor network algorithms’, Phys. Rev. B ,89, 245118, (Jun
+2014).
+[16] Ian Goodfellow, Yoshua Bengio, and Aaron Courville, Deep Learning ,
+MIT Press, 2016.
+[17] Geoffrey E. Hinton, Simon Osindero, and Yee Whye Teh, ‘A fast learn-
+ing algorithm for deep belief nets’, Neural Computation ,18(7), 1527–
+1554, (2006).
+[18] F. V . Jensen, S. Lauritzen, and K. Olesen, ‘Bayesian updating in recur-
+sive graphical models by local computation’, Computational Statistics
+Quarterly ,4, 269–282, (1990).
+[19] Frank Jensen and S. Anderson, ‘Approximations in bayesian belief uni-
+verse for knowledge based systems’, in Proceedings of the Sixth Con-
+ference Annual Conference on Uncertainty in Artiﬁcial Intelligence
+(UAI-90) , pp. 162–169, Corvallis, Oregon, (1990). AUAI Press.
+[20] Uffe Kjærulff, ‘Triangulation of graphs – algorithms giving small total
+state space’, Technical report, (1990).
+[21] David Larkin and Rina Dechter, ‘Bayesian inference in the presence of
+determinism’, in Proceedings of the Ninth International Workshop on
+Artiﬁcial Intelligence and Statistics (AISTATS) , (2003).
+[22] Vasilica Lepar and Prakash P. Shenoy, ‘A comparison of lauritzen-
+spiegelhalter, hugin, and shenoy-shafer architectures for computing
+marginals of probability distributions’, in UAI, pp. 328–337. Morgan
+Kaufmann, (1998).
+[23] Judea Pearl, Probabilistic Reasoning in Intelligent Systems: Networks
+of Plausible Inference , MK, 1988.
+[24] Judea Pearl, Causality , Cambridge University Press, 2000.
+[25] Judea Pearl and Dana Mackenzie, The Book of Why: The New Science
+of Cause and Effect , Basic Books, 2018.
+[26] Marc’Aurelio Ranzato, Christopher S. Poultney, Sumit Chopra, and
+Yann LeCun, ‘Efﬁcient learning of sparse representations with an
+energy-based model’, in Advances in Neural Information Processing
+Systems 19 (NIPS) , pp. 1137–1144, (2006).
+[27] Yujia Shen, Haiying Huang, Arthur Choi, and Adnan Darwiche, ‘Con-
+ditional independence in testing bayesian networks’, in ICML , vol-
+ume 97 of Proceedings of Machine Learning Research , pp. 5701–5709.
+PMLR, (2019).
+[28] Prakash P. Shenoy, ‘Binary join trees’, in UAI, pp. 492–499. Morgan
+Kaufmann, (1996).
+[29] Nevin Lianwen Zhang and David Poole, ‘Exploiting causal indepen-
+dence in bayesian network inference’, Journal of Artiﬁcial Intelligence
+Research ,5, 301–328, (1996).

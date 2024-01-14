@@ -62,7 +62,7 @@ function Home() {
   
   function handleSubmit(event) {
     event.preventDefault()
-    const url = 'http://localhost:3000/uploadFile';
+    const url = 'http://localhost:5000/uploadFile';
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', file.name);
@@ -71,10 +71,7 @@ function Home() {
         'content-type': 'multipart/form-data',
       },
     };
-    axios.post(url, formData, config).then((response) => {
-      console.log(response.data);
-    });
-
+    axios.post(url, formData, config)
   }
 
   return (<div>

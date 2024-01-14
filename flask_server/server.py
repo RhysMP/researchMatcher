@@ -5,6 +5,7 @@ import os
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
 from flask_cors import CORS
+from pdf_reader import convert_pdf_to_text
 
 
 app = Flask(__name__)
@@ -25,8 +26,8 @@ class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     fname = db.Column(db.String(40))
     lname = db.Column(db.String(40))
-    major = db.Column(db.String(40))
-    skills = db.Column(ARRAY(db.String(40)))
+    email = db.Column(db.String(60))
+    phone_number = db.Column(db.String(60))
     resume_text_ = db.Column(db.String()) ## resume will be converted to text. 
 
 
@@ -44,8 +45,8 @@ def get_all_students():
             'id': student.id,
             'fname': student.fname,
             'lname': student.lname,
-            'major': student.major,
-            'skills': student.skills,
+            'email': student.email,
+            'phone_number': student.phone_number, 
             'resume_text_': student.resume_text_
         }
         student_list.append(student_data)
@@ -60,8 +61,8 @@ def update_student(student_id):
 
     student.fname = data['fname']
     student.lname = data['lname']
-    student.major = data['major']
-    student.skills = data['skills']
+    student.email = data['email']
+    student.phone_number = data['phone_number']
     student.resume_text_ = data['resume_text_']
 
     db.session.commit()
@@ -78,8 +79,8 @@ def get_student(student_id):
            'id': student.id,
             'fname': student.fname,
             'lname': student.lname,
-            'major': student.major,
-            'skills': student.skills,
+            'email': student.email,
+            'phone_number': student.phone_number, 
             'resume_text_': student.resume_text_
         }
         return jsonify({'student': student_data}), 200
@@ -94,8 +95,8 @@ def create_student():
     new_student = Student(
         fname=data['fname'],
         lname=data['lname'],
-        major=data['major'],
-        skills=data['skills'],
+        email = data['email'],
+        phone_number = data['phone_number'],
         resume_text_=data['resume_text_']
     )
 
@@ -120,6 +121,40 @@ def delete_student(student_id):
         return jsonify({'message': 'Student deleted successfully'}), 200
     else:
         return jsonify({'message': 'Student not found'}), 404
+
+
+@app.route('/create/student', methods=['POST'])
+def create_student_with_resume():
+    data = request.form.to_dict()
+
+    if 'file' not in request.files:
+        return 'No file part'
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return 'No selected file'
+
+    text = convert_pdf_to_text(file)
+
+
+    new_student = Student(
+        fname=data['fname'],
+        lname=data['lname'],
+        email = data['email'],
+        phone_number = data['phone_number'],
+        resume_text_=text
+    )
+
+    db.session.add(new_student)
+
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Student created successfully'}), 201
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'error': 'Student with the same details already exists'}), 400
+
 
 
 # Professor Model and CRUD operations
@@ -199,6 +234,9 @@ def get_professor(professor_id):
     else:
         return jsonify({'message': 'Professor not found'}), 404
 
+
+
 if __name__ == '__main__':
     db.create_all()
     app.run(debug=True)
+

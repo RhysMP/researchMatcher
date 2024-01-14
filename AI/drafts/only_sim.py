@@ -27,38 +27,22 @@ def get_keywords_prof(research):
     # return keywords
     return keywords
 
-
-cleaned_resume = re.sub(r'[^a-zA-Z\s]', '', res)
-cleaned_research = re.sub(r'[^a-zA-Z\s]', '', rea)
-
-# get keywords
-stud_keys = get_keywords_student(cleaned_resume)
-profe_keys = get_keywords_prof(cleaned_research)
-
-
-fin_s_keys = [tup[0] for tup in stud_keys if tup[1] >= 0.2]
-fin_p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
-
-
 # function to get overall cosine similarity between both lists of keywords
 def get_sim_score(student_keys, prof_keys):
-    student_keys = fin_s_keys
-    prof_keys = fin_p_keys
 
     # extract keywords from tuples
-    student_keys = [tup[0] for tup in student_keys]
-    prof_keys = [tup[0] for tup in prof_keys]
+    student_ks = [tup[0] for tup in student_keys]
+    prof_ks = [tup[0] for tup in prof_keys]
 
-    all_keys = student_keys + prof_keys
-    
+    all_keys = student_ks + prof_ks
     
     # check if vocabulary is empty or contains only stop words
     if not any(word.isalpha() for word in all_keys):
         return 0.0  
 
     # create vectors for student and professor keywords
-    vector_list1 = np.array([1 if key in student_keys else 0 for key in all_keys])
-    vector_list2 = np.array([1 if key in prof_keys else 0 for key in all_keys])
+    vector_list1 = np.array([1 if key in student_ks else 0 for key in all_keys])
+    vector_list2 = np.array([1 if key in prof_ks else 0 for key in all_keys])
 
     # calculate cosine similarity between the two vectors
     dot_product = np.dot(vector_list1, vector_list2)
@@ -69,8 +53,6 @@ def get_sim_score(student_keys, prof_keys):
 
     return sim_score
 
-print(get_sim_score(stud_keys, profe_keys))
-
 def only_sim_score(student, prof):
 
     # student: str of student resume
@@ -79,11 +61,11 @@ def only_sim_score(student, prof):
     # clean resume text, get keywords, extract using threshold
     clean_resume = re.sub(r'[^a-zA-Z\s]', '', student)
     keys_stud = get_keywords_student(clean_resume)
-    s_keys = [tup[0] for tup in stud_keys if tup[1] >= 0.2]
+    s_keys = [tup[0] for tup in keys_stud if tup[1] >= 0.2]
 
     # clean prof text, get keywords, extract using threshold
     clean_research = re.sub(r'[^a-zA-Z\s]', '', prof)
     keys_prof = get_keywords_prof(clean_research)
-    p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
+    p_keys = [tup[0] for tup in keys_prof if tup[1] >= 0.2]
 
-    return get_sim_score(stud_keys, profe_keys)
+    return get_sim_score(s_keys, p_keys)

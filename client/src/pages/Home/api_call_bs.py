@@ -2,14 +2,8 @@ import requests
 import json
 from final_sim_score import get_sim_score
 
-def get_student(id):
-    # Specify the web address where the JSON data is hosted
-    json_url = "https://b826-169-231-132-179.ngrok-free.app/students/" + str(id)
-    # Fetch JSON data from the web
-    response_student = requests.get(json_url)
-    data = response_student.json()
-    studentJson = data["student"]
-    stud_keys = studentJson['key_words']
+def get_student(keywords):
+    stud_keys = keywords['key_words']
 
     # Specify the web address where the JSON data is hosted
     json_url = "https://b826-169-231-132-179.ngrok-free.app/professors"
@@ -30,7 +24,9 @@ def get_student(id):
                 profe_keys = professor['key_words']
                 similarity_score = get_sim_score(stud_keys, profe_keys)
                 professor['similarity_score'] = similarity_score
-                print(professor)
+                
+            print(professors_list)
+            return professors_list
 
 
         else:

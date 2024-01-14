@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { FONT_SIZE } from '../../constants';
 import landing from '../../landing.png';
 import rick from '../../RickAstley.jpg';
+import waves from '../../waves.png';
 
 const Welcome = styled.div`
   display: flex;
@@ -29,11 +30,11 @@ const Container = styled.div`
 `;
 
 const Title = styled.div`
-  font-weight: 500;
+  font-weight: 600;
   font-size: 32pt;
   color: black;
-  text-shadow: 1px 1px 4px black;
-  font-family: 'Inria Sans', sans-serif;
+  text-shadow: 1px 2px 2px rgba(0,0,0,0.5);
+  font-family: Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,Noto Sans,sans-serif,"Apple Color Emoji","Segoe UI Emoji",Segoe UI Symbol,"Noto Color Emoji" !important;
   margin-bottom: 20px;
   padding: 20px 0px;
 `;
@@ -41,7 +42,7 @@ const Title = styled.div`
 const WelcomeContent = styled.div`
   color: #5879D1;
   font-family: 'Inria Sans', sans-serif;
-  border-top: 2px solid #5879D1;
+  border-top: 2px solid #FFEB82;
   background-color: rgba(230,230,230,0.9);
   border-radius: 0px 0px 10px 10px;
   transform: translateX(-20px);
@@ -73,6 +74,7 @@ const InputField = styled.input`
 const FileUpload = styled.label`
   padding: 10px;
   border-radius: 10px;
+  font-weight: bold;
   background-color: lightgreen;
   font-family: 'Inria Sans', sans-serif;
   cursor: pointer;
@@ -88,7 +90,7 @@ const CustomInput = styled.input`
 `;
 
 const RegistrationText = styled.div`
-  color: darkgray;
+  color: rgba(0, 0, 0, 0.7);
   width: min-content;
 `;
 
@@ -105,11 +107,45 @@ const ButtonContainer = styled.div`
 
 const CreateAccount = styled.button`
   all: unset;
-  background-color: #F67171;
+  background-color: #FFEB82;
   padding: 10px;
   border-radius: 10px;
   cursor: pointer;
-`
+  font-weight: bold;
+  color: black;
+
+  &:hover {
+    transform: scale(1.03);
+  }
+`;
+
+const ContContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 900px;
+  background-image: url(${waves});
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  font-family: 'Inria Sans', sans-serif;
+`;
+
+const Subtitle = styled.div`
+  font-weight: bolder;
+  color: black;
+  font-size: ${FONT_SIZE.xl};
+`;
+
+const AchievementsContainer = styled.div`
+  background-color: #F0ECD5;
+  width: 400px;
+  height: 150px;
+  align-self: flex-end;
+  border-radius: 10px;
+  padding: 20px;
+`;
 
 // Sends input fields:
 // - "name"
@@ -144,13 +180,12 @@ function Home() {
       <form onSubmit={handleSubmit}>
       <Welcome>
         <Container>
-          
           <SubContainer>
-            <Title>Looking for research in academia?</Title>
+            <Title>Looking for research <br/>in academia?</Title>
             <WelcomeContent>Join our community of only 4 people nationwide</WelcomeContent>
           </SubContainer>
           
-          <SubContainer style={{backgroundColor: 'rgba(230,230,230,0.9)'}}>
+          <SubContainer style={{border: '2px solid #FFEB82',backgroundColor: 'rgba(230,230,230,0.9)'}}>
             <div style={{display: 'flex', height: '60%', width: '100%'}}>
               <div style={{width: '50%', height: '100%', marginRight: '40px'}}>
                   <InputField placeholder="First/Last Name" name="name" id="name" required/>
@@ -189,6 +224,12 @@ function Home() {
           </SubContainer>
         </Container>
       </Welcome>
+      <ContContainer>
+        <Container>
+          <SubContainer><Subtitle style={{marginTop: '30px'}}>Where research professors meet ambitious students</Subtitle></SubContainer>
+          <SubContainer><AchievementsContainer>Some box that pitches an idea</AchievementsContainer></SubContainer>
+        </Container>
+      </ContContainer>
       </form>
     </div>)
 }

@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import { FONT_COLOR, FONT_SIZE, COLOR } from '../constants';
+import { FONT_SIZE } from '../constants';
 
 const Navbar = styled.nav`
 	width: 100%;
@@ -30,7 +30,7 @@ const JoinButton = styled.button`
 	all: unset;
 	padding: 0px 20px;
 	color: black;
-	background-color: white;
+	background-color: #FFEB82;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", Segoe UI Symbol, "Noto Color Emoji" !important;
 	height: 35px;
 	font-family: 'Lato';
@@ -62,9 +62,6 @@ const NavbarLink = styled(Link)`
 		padding-bottom: 2px;
 		border-radius: 0px;
 		outline: 1px solid black;
-	}
-
-	&:hover {
 		transform: scale(1.03);
 		cursor: pointer;
 	}
@@ -78,7 +75,8 @@ const NavbarLink = styled(Link)`
 
 const Logo = styled.div`
 	color: black;
-	font-size: ${FONT_SIZE.xl};
+	font-family: 'Inria Sans', sans-serif;
+	font-size: ${FONT_SIZE.lg};
 	align-self: center;
 `
 
@@ -94,7 +92,7 @@ const AIContainer = styled.div`
 const AI = styled.div`
   border-radius: 40px;
   padding: 2px 10px;
-  background-color: ${FONT_COLOR.tertiary};
+  background-color: #FFEB82;
   font-family: Spot Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
 `;
 
@@ -108,7 +106,7 @@ function Nav() {
 						window.location.href = '/';
 					}}
 				>
-					<Logo style={{alignSelf: 'center'}}>ResearchMatcherer</Logo>
+					<Logo style={{alignSelf: 'center'}}>ResearchMatcher[er]</Logo>
           <AIContainer><AI>AI</AI></AIContainer>
 				</button>
 			</LeftContainer>

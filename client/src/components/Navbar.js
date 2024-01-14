@@ -53,7 +53,7 @@ const JoinButton = styled.button`
 const NavbarLink = styled(Link)`
 	align-self: center;
 	text-decoration: none;
-  font-family: Spot Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  font-family: 'Inria Sans', sans-serif;
 	padding: 0px 24px;
 	margin: 0px 3px;
 	color: white;
@@ -122,20 +122,20 @@ function Nav() {
 
 				<NavbarLink
 					onClick={() => {
-						window.location.href = '/contactus';
+						window.location.href = '/';
 					}}>
 					Contact</NavbarLink>
 
 				<NavbarLink
 					onClick={() => {
-						window.location.href = '/dashboard';
+						window.location.href = '/student';
 					}}>
 					Sign in
 				</NavbarLink>
 				<div style={{ height: 'min-content', display: 'flex', alignSelf: 'center'}}>
 					<JoinButton
 						onClick={() => {
-							window.location.href = '/dashboard';
+							window.location.href = '/student';
 						}}
 					>
 						Join Us

@@ -37,14 +37,10 @@ cleaned_research = re.sub(r'[^a-zA-Z\s]', '', rea)
 stud_keys = get_keywords_student(cleaned_resume)
 profe_keys = get_keywords_prof(cleaned_research)
 
-print(stud_keys)
-print(profe_keys)
 
 fin_s_keys = [tup[0] for tup in stud_keys if tup[1] >= 0.2]
 fin_p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
 
-print(fin_s_keys)
-print(fin_p_keys)
 
 # function to get overall cosine similarity between both lists of keywords
 def get_sim_score(student_keys, prof_keys):

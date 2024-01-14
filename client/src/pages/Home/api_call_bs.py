@@ -1,28 +1,41 @@
 import requests
 import json
+from final_sim_score import get_sim_score
 
-# Specify the web address where the JSON data is hosted
-json_url = "https://b826-169-231-132-179.ngrok-free.app/professors"
-# Fetch JSON data from the web
-response = requests.get(json_url)
+def get_student(id):
+    # Specify the web address where the JSON data is hosted
+    json_url = "https://b826-169-231-132-179.ngrok-free.app/students/" + str(id)
+    # Fetch JSON data from the web
+    response_student = requests.get(json_url)
+    data = response_student.json()
+    studentJson = data["student"]
+    stud_keys = studentJson['key_words']
 
-# Check if the request was successful (status code 200)
-if response.status_code == 200:
-    # Parse JSON string into a dictionary
-    data = json.loads(response.text)
+    # Specify the web address where the JSON data is hosted
+    json_url = "https://b826-169-231-132-179.ngrok-free.app/professors"
+    # Fetch JSON data from the web
+    response_professors = requests.get(json_url)
 
-    # Specify the professor's ID you are interested in
-    professor_id_to_find = 3
+    # Check if the request was successful (status code 200)
+    if response_professors.status_code == 200:
+        # Parse JSON data
+        json_data = response_professors.json()
 
-    # Find the professor with the specified ID
-    selected_professor = next((professor for professor in data["professors"] if professor["id"] == professor_id_to_find), None)
+        # Check if "professors" key exists in the JSON data
+        if "professors" in json_data:
+            # Access the list of professors
+            professors_list = json_data["professors"]
+            # Iterate through the list of professors
+            for professor in professors_list:
+                profe_keys = professor['key_words']
+                similarity_score = get_sim_score(stud_keys, profe_keys)
+                professor['similarity_score'] = similarity_score
+                print(professor)
 
-    # Check if the professor was found
-    if selected_professor:
-        # Extract and store the keywords as a string
-        keywords_string = ", ".join(selected_professor["key_words"])
-        print("Keywords of Prof. Nathaniel:", keywords_string)
+
+        else:
+            print("Error: 'professors' key not found in the JSON data")
     else:
-        print("Professor not found with ID:", professor_id_to_find)
-else:
-    print("Failed to fetch JSON data. Status code:", response.status_code)
+        # Print an error message if the request was not successful
+        print(f"Error: {response_professors.status_code}")
+

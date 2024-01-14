@@ -4,6 +4,8 @@ import { FONT_SIZE } from '../../constants';
 import whiteabstract from '../../whitewaves.jpg';
 import back from '../../back.png';
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import oldman from './oldman.jpg';
 
 const Container = styled.div`
   display: flex;
@@ -63,7 +65,7 @@ const Image = styled.div`
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
-  background-image: url("https://lastfm.freetls.fastly.net/i/u/770x0/94cbc3fbf0529f53cfec3a31b1c33e31.jpg#94cbc3fbf0529f53cfec3a31b1c33e31");
+  background-image: url(${oldman});
 `;
 
 const Subtitle = styled.div`
@@ -102,7 +104,7 @@ const ProfilePic = styled.div`
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
-  background-image: url("https://lastfm.freetls.fastly.net/i/u/770x0/94cbc3fbf0529f53cfec3a31b1c33e31.jpg#94cbc3fbf0529f53cfec3a31b1c33e31");
+  background-image: url(${oldman});
 `;
 
 const ProfileName = styled.div`
@@ -153,6 +155,19 @@ const Swipe = styled.div`
   }
 `;
 
+function limitCharacters(str, limit) {
+  if (typeof str !== 'string' || typeof limit !== 'number') {
+    console.error('Invalid input. Please provide a valid string and a numeric limit.');
+    return str;
+  }
+
+  if (str.length <= limit) {
+    return str;
+  } else {
+    return str.slice(0, limit) + '...';
+  }
+}
+
 function loadKeywords(arr) {
   let keys = [];
   for (let i = 0; i < arr.length; i++) {
@@ -173,12 +188,28 @@ function Student() {
   const [percent, setPercent] = useState(79);
   const [abstract, setAbstract] = useState("This paper shows how Long Short-term Memory recurrent neural networks can be used to generate complex sequences with long-range structure, simply by predicting one data point at a time. The approach is demonstrated for text (where the data are discrete) and online handwriting (where the data are real-valued). It is then extended to handwriting synthesis by allowing the network...");
   const [profName, setProfName] = useState("Jimmy O' Yang");
-  
-  function getBestMatch() {
-    let best = professors[0];
-    for (let i = 0; i < professors.length; i++) {
-      if (professors[0].similarityscore > best.similarityscore) {
-        best = professors[i];
+  const location = useLocation();
+  const { data } = location.state || {};
+  const [loaded, setLoaded] = useState(false)
+ 
+  if (!loaded) {
+    setProfessors(data["professors"]);
+    setLoaded(true);
+    let best = getBestMatch(data["professors"]);
+    console.log(JSON.stringify(best))
+    setPercent(best.similarity_score);
+    setAbstract(best.abstract);
+    setProfName(best.fname + " " + best.lname);
+  }
+
+  function getBestMatch(profs) {
+    let best = {"similarity_score": 0};
+    for (let i = 0; i < profs.length; i++) {
+      if (profs[i] == undefined) {
+        continue;
+      }
+      if (profs[i].similarity_score > best.similarity_score) {
+        best = profs[i];
       }
     }
     return best;
@@ -186,10 +217,10 @@ function Student() {
 
   function swipe(name) {
     for (let i = 0; i < professors.length; i++) {
-      if (professors[i].name == name) {
+      if (professors[i].fname + " " + professors[i].lname == name) {
         // Delete from the DOM
         let proflist = document.getElementById("ProfList");
-        for (const child of proflist) {
+        for (const child of proflist.children) {
           if (child.getAttribute('key') == name) {
             child.remove();
           }
@@ -201,14 +232,17 @@ function Student() {
     }
 
     // Find the next best professor, load their data.
-    let best = getBestMatch();
+    let best = getBestMatch(professors);
     setPercent(best.similarityscore);
     setAbstract(best.abstract);
     setProfName(best.name);
   }
 
-  function clickMessage(target, name) {
-    setProfName(name)
+  function clickMessage(target, prof) {
+    setProfName(prof.fname + " " + prof.lname);
+    setAbstract(prof.abstract);
+    setPercent((prof.similarity_score * 100))
+
     for (const child of target.children) {
       if (child.getAttribute('value') === "reddot") {
         child.style="display: none;"
@@ -219,10 +253,14 @@ function Student() {
   function ListProfessors(arr) {
     let Professors = [];
     for (let i = 0; i < arr.length; i++) {
-      let prof = (<Person key={arr[i].name} onClick={(e)=>{clickMessage(e.target, arr[i].name)}}>
-        <ProfilePic onClick={(e)=>{clickMessage(e.target.parentElement, arr[i].name)}}/>
+      if (arr[i] == undefined) {
+        continue;
+      }
+      let name = arr[i].fname + " " + arr[i].lname;
+      let prof = (<Person key={name} onClick={(e)=>{clickMessage(e.target, arr[i])}}>
+        <ProfilePic onClick={(e)=>{clickMessage(e.target.parentElement, arr[i])}}/>
         <RedDot value="reddot"/>
-        <ProfileName onClick={(e)=>{clickMessage(e.target.parentElement, arr[i].name)}}>{arr[i].name}</ProfileName>
+        <ProfileName onClick={(e)=>{clickMessage(e.target.parentElement, arr[i])}}>{name}</ProfileName>
       </Person>)
       Professors.push(prof);
     }
@@ -249,7 +287,7 @@ function Student() {
               <Image/>
               <Description style={{marginLeft: '20px', flex: 1}}>
                 <MatchScore>
-                  {percent}%
+                  {Math.round(percent*1.25)}%
                   <br/>
                   Match
                 </MatchScore>
@@ -265,7 +303,7 @@ function Student() {
               <Subtitle style={{marginTop: '20px'}}>
                 Research Preview:
               </Subtitle>
-              {abstract}
+              {limitCharacters(abstract, 370)}
             </Description>
           </ProfessorContainer>
           <ProfessorContainer style={{display: 'flex', justifyContent: 'flex-end', height: 'min-content', padding: '0px', backgroundColor: 'rgba(0,0,0,0)'}}>

@@ -58,7 +58,7 @@ def get_student(stud_keys):
             for professor in professors_list:
                 profe_keys = professor['key_words']
                 similarity_score = get_sim_score(stud_keys, profe_keys)
-                professor['similarity_score'] = similarity_score
+                professor['similarity_score'] = similarity_score 
                 
             print(professors_list)
             return professors_list

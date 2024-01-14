@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import axios from 'axios';
 import Nav from '../../components/Navbar.js'
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FONT_SIZE } from '../../constants';
 import landing from '../../landing.png';
 import rick from '../../RickAstley.jpg';
@@ -155,6 +156,8 @@ const AchievementsContainer = styled.div`
 function Home() {
   const [file, setFile] = useState()
   const [submissionStatus, setStatus] = useState('');
+  const navigate = useNavigate();
+  
 
   function handleChange(event) {
     setFile(event.target.files[0]);
@@ -176,7 +179,7 @@ function Home() {
       },
     };
     axios.post(url, formData, config).then((response) => {
-      console.log(response.data);
+      navigate('/student', { state: { data: response.data } });
     });
   }
 

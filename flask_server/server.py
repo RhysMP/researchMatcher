@@ -27,8 +27,8 @@ class Student(db.Model):
     fname = db.Column(db.String(40))
     lname = db.Column(db.String(40))
     email = db.Column(db.String(60))
-    phone_number = db.Column(db.String(60))
-    resume_text_ = db.Column(db.String()) ## resume will be converted to text. 
+    field = db.Column(db.String(60))
+    key_words = db.Column(ARRAY(db.String())) ## resume will be converted to text. 
 
 
 @app.route('/')
@@ -46,8 +46,8 @@ def get_all_students():
             'fname': student.fname,
             'lname': student.lname,
             'email': student.email,
-            'phone_number': student.phone_number, 
-            'resume_text_': student.resume_text_
+            'field': student.field, 
+            'key_words': student.key_words
         }
         student_list.append(student_data)
     return jsonify({'students': student_list}), 200
@@ -62,8 +62,8 @@ def update_student(student_id):
     student.fname = data['fname']
     student.lname = data['lname']
     student.email = data['email']
-    student.phone_number = data['phone_number']
-    student.resume_text_ = data['resume_text_']
+    student.field = data['field']
+    student.key_words = data['key_words']
 
     db.session.commit()
 
@@ -80,8 +80,8 @@ def get_student(student_id):
             'fname': student.fname,
             'lname': student.lname,
             'email': student.email,
-            'phone_number': student.phone_number, 
-            'resume_text_': student.resume_text_
+            'field': student.field, 
+            'key_words': student.key_words
         }
         return jsonify({'student': student_data}), 200
     else:
@@ -96,8 +96,8 @@ def create_student():
         fname=data['fname'],
         lname=data['lname'],
         email = data['email'],
-        phone_number = data['phone_number'],
-        resume_text_=data['resume_text_']
+        field = data['field'],
+        key_words=data['key_words']
     )
 
     db.session.add(new_student)
@@ -123,37 +123,37 @@ def delete_student(student_id):
         return jsonify({'message': 'Student not found'}), 404
 
 
-@app.route('/create/student', methods=['POST'])
-def create_student_with_resume():
-    data = request.form.to_dict()
+# @app.route('/create/student', methods=['POST'])
+# def create_student_with_resume():
+#     data = request.form.to_dict()
 
-    if 'file' not in request.files:
-        return 'No file part'
+#     if 'file' not in request.files:
+#         return 'No file part'
 
-    file = request.files['file']
+#     file = request.files['file']
 
-    if file.filename == '':
-        return 'No selected file'
+#     if file.filename == '':
+#         return 'No selected file'
 
-    text = convert_pdf_to_text(file)
+#     text = convert_pdf_to_text(file)
 
 
-    new_student = Student(
-        fname=data['fname'],
-        lname=data['lname'],
-        email = data['email'],
-        phone_number = data['phone_number'],
-        resume_text_=text
-    )
+#     new_student = Student(
+#         fname=data['fname'],
+#         lname=data['lname'],
+#         email = data['email'],
+#         phone_number = data['phone_number'],
+#         resume_text_=text
+#     )
 
-    db.session.add(new_student)
+#     db.session.add(new_student)
 
-    try:
-        db.session.commit()
-        return jsonify({'message': 'Student created successfully'}), 201
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({'error': 'Student with the same details already exists'}), 400
+#     try:
+#         db.session.commit()
+#         return jsonify({'message': 'Student created successfully'}), 201
+#     except IntegrityError:
+#         db.session.rollback()
+#         return jsonify({'error': 'Student with the same details already exists'}), 400
 
 
 
@@ -164,23 +164,35 @@ class Professor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     fname = db.Column(db.String(40))
     lname = db.Column(db.String(40))
+    field = db.Column(db.String(40))
+    abstract = db.Column(db.String())
     image_path = db.Column(db.String(255))  # Store the image filename
+    key_words = db.Column(ARRAY(db.String()))
 
-    def __init__(self, fname, lname, image_path=None):
+    def __init__(self, fname, lname, field, image_path, key_words, abstract):
         self.fname = fname
         self.lname = lname
+        self.field = field
+        self.abstract = abstract
         self.image_path = image_path
+        self.key_words = key_words
+    
 
 @app.route('/professors', methods=['POST'])
 def create_professor():
     data = request.form.to_dict()
 
     filename = upload_file()
+    key_words = request.form.getlist('key_words')
+    print(key_words)
 
     new_professor = Professor(
         fname=data['fname'],
         lname=data['lname'],
-        image_path=f"{UPLOAD_FOLDER}/{filename}"  # Adjust this line based on your folder structure
+        abstract=data['abstract'],
+        image_path=f"{UPLOAD_FOLDER}/{filename}", # Adjust this line based on your folder structure
+        field = data['field'],
+        key_words=key_words
     )
     db.session.add(new_professor)
 
@@ -207,15 +219,31 @@ def upload_file():
 
 @app.route('/professors', methods=['GET'])
 def get_all_professors():
-    professors = Professor.query.all()
+   # Check if 'field' parameter is provided in the request
+    field_query = request.args.get('field')
+
+    # ?field=desired_field
+
+    if field_query:
+        # If 'field' parameter is provided, filter professors by the specified field
+        professors = Professor.query.filter_by(field=field_query).all()
+    else:
+        # If 'field' parameter is not provided, get all professors
+        professors = Professor.query.all()
+
     professor_list = []
     for professor in professors:
         professor_data = {
             'id': professor.id,
             'fname': professor.fname,
-            'lname': professor.lname
+            'lname': professor.lname,
+            'abstract': professor.abstract,
+            'image_path': professor.image_path,
+            'field': professor.field,
+            'key_words': professor.key_words
         }
         professor_list.append(professor_data)
+
     return jsonify({'professors': professor_list}), 200
 
 
@@ -228,15 +256,59 @@ def get_professor(professor_id):
             'id': professor.id,
             'fname': professor.fname,
             'lname': professor.lname,
-            'image_path': professor.image_path
+             'abstract': professor.abstract,
+            'image_path': professor.image_path,
+            'field': professor.field,
+            'key_words': professor.key_words
         }
         return jsonify({'professor': professor_data}), 200
     else:
         return jsonify({'message': 'Professor not found'}), 404
 
 
+@app.route('/professors/<int:professor_id>', methods=['DELETE'])
+def delete_professor(professor_id):
+    professor = Professor.query.get(professor_id)
+    if professor:
+        db.session.delete(professor)
+        db.session.commit()
+        return jsonify({'message': 'professor deleted successfully'}), 200
+    else:
+        return jsonify({'message': 'professor not found'}), 404
+
+@app.route('/professors/<int:professor_id>', methods=['PUT'])
+def update_professor(professor_id):
+    professor = Professor.query.get_or_404(professor_id)
+
+    # Get the updated data from the form
+    updated_data = request.form.to_dict()
+
+    # Update the professor object with the new data
+    professor.fname = updated_data.get('fname', professor.fname)
+    professor.lname = updated_data.get('lname', professor.lname)
+    professor.abstract = updated_data.get('abstract', professor.abstract)
+    professor.field = updated_data.get('field', professor.field)
+
+    # Update keywords
+    key_words = request.form.getlist('key_words')
+    professor.key_words = key_words
+
+    # Check if a new file is provided for the image update
+    if 'file' in request.files:
+        filename = upload_file()
+        professor.image_path = f"{UPLOAD_FOLDER}/{filename}"  # Adjust based on your folder structure
+
+    # Commit the changes to the database
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Professor updated successfully'}), 200
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'error': 'Update failed. IntegrityError occurred'}), 400
 
 if __name__ == '__main__':
     db.create_all()
     app.run(debug=True)
+
+
 

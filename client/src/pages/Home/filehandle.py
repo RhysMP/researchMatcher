@@ -29,7 +29,6 @@ def upload_file():
     file.save(os.path.join("C:/Users/kingy/OneDrive/Desktop/SBHacks/sbhacksX/client/src/pages/", file.filename))
     major = request.form['major']
     name = request.form['name']
-    time.sleep(5)
 
     # Replace 'your_pdf_[file.pdf' with the actual path to your PDF file
     result_text = convert_pdf_to_text("C:/Users/kingy/OneDrive/Desktop/SBHacks/sbhacksX/client/src/pages/" + file.filename)
@@ -46,9 +45,6 @@ def upload_file():
 if __name__ == '__main__':
     app.run()
 
-
-time.sleep(5)
-test()
 
  
 # divison of labor: 

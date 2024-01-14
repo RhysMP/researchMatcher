@@ -33,7 +33,9 @@ class Student(db.Model):
 
 @app.route('/')
 def index():
-    return "<p>Hello, World!</p>"
+    text = convert_pdf_to_text("/Users/kaankoc/Desktop/test/sbhacksX/flask_server/kaankoc_resume.pdf")
+    return text
+
 
 
 @app.route('/students', methods=['GET'])

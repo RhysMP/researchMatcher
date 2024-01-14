@@ -162,17 +162,19 @@ function Home() {
   }
   
   function handleSubmit(event) {
-    event.preventDefault()
+    event.preventDefault();
     const url = 'http://localhost:5000/uploadFile';
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', file.name);
+    formData.append('name', event.target.name.value);
+    formData.append('major', event.target.major.value);
     const config = {
       headers: {
         'content-type': 'multipart/form-data',
       },
     };
-    axios.post(url, formData, config)
+    axios.post(url, formData, config);
   }
 
   return (<div>

@@ -28,22 +28,20 @@ def get_keywords_prof(research):
     return keywords
 
 
-cleaned_resume = re.sub(r'[^a-zA-Z\s]', '', res)
-cleaned_research = re.sub(r'[^a-zA-Z\s]', '', rea)
+#cleaned_resume = re.sub(r'[^a-zA-Z\s]', '', res)
+#cleaned_research = re.sub(r'[^a-zA-Z\s]', '', rea)
 
 # get keywords
-stud_keys = get_keywords_student(cleaned_resume)
-profe_keys = get_keywords_prof(cleaned_research)
+#stud_keys = get_keywords_student(cleaned_resume)
+#profe_keys = get_keywords_prof(cleaned_research)
 
 
-fin_s_keys = [tup[0] for tup in stud_keys if tup[1] >= 0.2]
-fin_p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
+#fin_s_keys = [tup[0] for tup in stud_keys if tup[1] >= 0.2]
+#fin_p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
 
 
 # function to get overall cosine similarity between both lists of keywords
 def get_sim_score(student_keys, prof_keys):
-    student_keys = fin_s_keys
-    prof_keys = fin_p_keys
 
     # extract keywords from tuples
     student_keys = [tup[0] for tup in student_keys]
@@ -69,21 +67,21 @@ def get_sim_score(student_keys, prof_keys):
 
     return sim_score
 
-print(get_sim_score(stud_keys, profe_keys))
+#print(get_sim_score(stud_keys, profe_keys))
 
-def only_sim_score(student, prof):
+# def only_sim_score(student, prof):
 
-    # student: str of student resume
-    # prof: str of professor abstract
+#     # student: str of student resume
+#     # prof: str of professor abstract
     
-    # clean resume text, get keywords, extract using threshold
-    clean_resume = re.sub(r'[^a-zA-Z\s]', '', student)
-    keys_stud = get_keywords_student(clean_resume)
-    s_keys = [tup[0] for tup in stud_keys if tup[1] >= 0.2]
+#     # clean resume text, get keywords, extract using threshold
+#     clean_resume = re.sub(r'[^a-zA-Z\s]', '', student)
+#     keys_stud = get_keywords_student(clean_resume)
+#     s_keys = [tup[0] for tup in stud_keys if tup[1] >= 0.2]
 
-    # clean prof text, get keywords, extract using threshold
-    clean_research = re.sub(r'[^a-zA-Z\s]', '', prof)
-    keys_prof = get_keywords_prof(clean_research)
-    p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
+#     # clean prof text, get keywords, extract using threshold
+#     clean_research = re.sub(r'[^a-zA-Z\s]', '', prof)
+#     keys_prof = get_keywords_prof(clean_research)
+#     p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
 
-    return get_sim_score(stud_keys, profe_keys)
+#     return get_sim_score(stud_keys, profe_keys)

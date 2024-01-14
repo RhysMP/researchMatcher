@@ -2,6 +2,9 @@ from flask import Flask, request
 import PyPDF2
 import os
 
+# import necessary packages
+
+
 app = Flask(__name__)
 
 def pdf_to_text(pdf_path):
@@ -20,10 +23,21 @@ def pdf_to_text(pdf_path):
 def upload_file():
     file = request.files['file']
     file.save('' + file.filename)
+    major = request.form['major']
+    name = request.form['name']
 
-    # Replace 'your_pdf_file.pdf' with the actual path to your PDF file
+
+
+
+    # formData.append('fileName', file.name);
+    # formData.append('name', event.target.name.value);
+    # formData.append('major', event.target.major.value);
+
+
+    # Replace 'your_pdf_[file.pdf' with the actual path to your PDF file
     pdf_path = file.filename
     result_text = pdf_to_text(pdf_path)
+    
 
     with open('output.txt', 'w') as output_file:
         output_file.write(result_text)
@@ -31,8 +45,16 @@ def upload_file():
     # Delete the original PDF file
     os.remove(pdf_path)
 
-    return 'File uploaded, converted to text, and saved successfully'
+    return result_text
 
 if __name__ == '__main__':
     app.run()
+
+
+
+
+ 
+# divison of labor: 
+    
+    
 

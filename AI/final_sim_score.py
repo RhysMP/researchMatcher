@@ -56,7 +56,6 @@ def get_sim_score(student_keys, prof_keys):
     
     # check if vocabulary is empty or contains only stop words
     if not any(word.isalpha() for word in all_keys):
-        print("Did not work")
         return 0.0  
 
     # create vectors for student and professor keywords

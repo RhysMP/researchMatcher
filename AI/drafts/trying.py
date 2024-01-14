@@ -26,13 +26,8 @@ Other duties as assigned.
 
 # import necessary packages
 from keybert import KeyBERT
-from sklearn.feature_extraction.text import CountVectorizer
 import re
 import numpy as np
-from fuzzywuzzy import fuzz
-
-def fuzzy_keyword_similarity(keyword1, keyword2):
-    return fuzz.token_sort_ratio(keyword1, keyword2) / 100.0
 
 # create function to use BERT model and extract keywords from students resume
 def get_keywords_student(resume):
@@ -71,44 +66,30 @@ fin_p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
 
 # function to get overall cosine similarity between both lists of keywords
 def get_sim_score(student_keys, prof_keys):
+    student_keys = fin_s_keys
+    prof_keys = fin_p_keys
 
-    # Extract keywords from tuples
-    student_keywords = [tup[0] for tup in student_keys if tup[1] >= 0.2]
-    prof_keywords = [tup[0] for tup in prof_keys if tup[1] >= 0.2]
+    # extract keywords from tuples
+    student_keys = [tup[0] for tup in student_keys]
+    prof_keys = [tup[0] for tup in prof_keys]
 
-    # Check if either set of keywords is empty
-    if not student_keywords or not prof_keywords:
-        return 0.0
+    all_keys = student_keys + prof_keys
+    
+    # check if either set of keywords is empty
+    if not student_keys or not prof_keys:
+        return 0.01
 
-    # Calculate average similarity between each pair of keywords using fuzzy matching
-    similarities = []
-    for student_kw in student_keywords:
-        for prof_kw in prof_keywords:
-            similarities.append(fuzzy_keyword_similarity(student_kw, prof_kw))
+    # create vectors for student and professor keywords
+    vector_list1 = np.array([1 if key in student_keys else 0 for key in all_keys])
+    vector_list2 = np.array([1 if key in prof_keys else 0 for key in all_keys])
 
-    # Calculate the average similarity score
-    if similarities:
-        sim_score = sum(similarities) / len(similarities)
-    else:
-        sim_score = 0.0
+    # calculate cosine similarity between the two vectors
+    dot_product = np.dot(vector_list1, vector_list2)
+    norm_product = np.linalg.norm(vector_list1) * np.linalg.norm(vector_list2)
+
+    # calculate the overall similarity score
+    sim_score = dot_product / norm_product if norm_product != 0 else 0.02 
 
     return sim_score
 
 print(get_sim_score(stud_keys, profe_keys))
-
-# def only_sim_score(student, prof):
-
-#     # student: str of student resume
-#     # prof: str of professor abstract
-    
-#     # clean resume text, get keywords, extract using threshold
-#     clean_resume = re.sub(r'[^a-zA-Z\s]', '', student)
-#     keys_stud = get_keywords_student(clean_resume)
-#     s_keys = [tup[0] for tup in stud_keys if tup[1] >= 0.2]
-
-#     # clean prof text, get keywords, extract using threshold
-#     clean_research = re.sub(r'[^a-zA-Z\s]', '', prof)
-#     keys_prof = get_keywords_prof(clean_research)
-#     p_keys = [tup[0] for tup in profe_keys if tup[1] >= 0.2]
-
-#     return get_sim_score(stud_keys, profe_keys)

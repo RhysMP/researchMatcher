@@ -6,7 +6,7 @@ def get_student(keywords):
     stud_keys = keywords['key_words']
 
     # Specify the web address where the JSON data is hosted
-    json_url = "https://b826-169-231-132-179.ngrok-free.app/professors"
+    json_url = "https://d5e6-169-231-132-179.ngrok-free.app/professors"
     # Fetch JSON data from the web
     response_professors = requests.get(json_url)
 

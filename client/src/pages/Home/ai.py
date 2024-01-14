@@ -4,7 +4,6 @@ from keybert import KeyBERT
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
-import pandas as pd
 import numpy as np
 import os as os 
 

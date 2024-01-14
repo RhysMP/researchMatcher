@@ -163,7 +163,7 @@ function Home() {
   
   function handleSubmit(event) {
     event.preventDefault();
-    const url = 'http://127.0.0.1:5000/uploadFile';
+    const url = 'http://127.0.0.1:5500/uploadFile';
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', file.name);

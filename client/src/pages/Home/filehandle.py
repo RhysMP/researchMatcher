@@ -23,6 +23,16 @@ def pdf_to_text(pdf_path):
 def upload_file():
     file = request.files['file']
     file.save('' + file.filename)
+    major = request.form['major']
+    name = request.form['name']
+
+
+
+
+    # formData.append('fileName', file.name);
+    # formData.append('name', event.target.name.value);
+    # formData.append('major', event.target.major.value);
+
 
     # Replace 'your_pdf_[file.pdf' with the actual path to your PDF file
     pdf_path = file.filename
@@ -42,6 +52,8 @@ if __name__ == '__main__':
 
 
 
+
+ 
 # divison of labor: 
     
     
